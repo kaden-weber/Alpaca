@@ -191,7 +191,7 @@ class MulandWeb:
                 if not isinstance(value, list):
                     raise bottle.HTTPError(400, 'Input "%s" isn\'t a list' % key)
                 if len(value) > 0:
-                    rowlenght = len(value[0])
+                    rowlength = len(value[0])
                     if any((len(row) != rowlength for row in value)):
                         raise bottle.HTTPError(400, 'Variable length size for input "%s"' % key)
                 mudata[key] = value
