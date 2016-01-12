@@ -14,6 +14,8 @@ class DependencyError(MulandException):
     pass
 
 class Muland:
+    '''Access Muland Application'''
+
     muland_binary='bin/muland'
     model_folder='model'
     work_folder='work'
