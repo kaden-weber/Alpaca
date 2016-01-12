@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+##
+# Interface with Mu-Land app
+##
 from pathlib import Path
 import os, tempfile, subprocess
 import csv
@@ -103,8 +106,9 @@ class Muland:
             output_data = []
             fullname = str(Path(working_dir, 'output', name + '.csv'))
             with open(fullname) as file:
-                reader = csv.reader(file)
-                next(reader)
+                next(file)
+                reader = csv.reader(file, delimiter=';',
+                                    quoting=csv.QUOTE_NONNUMERIC)
                 for row in reader:
                     output_data.append(tuple(row))
             self.output_data[name] = output_data
@@ -122,3 +126,45 @@ class Muland:
             # Collect data
             self._collect_data(working_dir)
 
+
+##
+# Interface with web server
+##
+import bottle
+import re
+import json
+
+class MulandWeb:
+    _model_re = re.compile('[a-z]')
+
+    def __init__(self):
+        self.app = bottle.Bottle()
+        self.app.post('/<model>', callback=self.post_handler)
+        self.app.get('/<model>', callback=self.post_handler)
+
+    def __getattr__(self, name):
+        '''Fallback to bottle app attributes'''
+        return getattr(self.app, name)
+
+    def post_handler(self, model):
+        '''Handles POST requests to server'''
+        if self._model_re.match(model) is None:
+            raise bottle.HTTPError(404)
+
+        try:
+            mu = Muland(model)
+        except ModelNotFound:
+            raise bottle.HTTPError(404)
+
+        try:
+            mu.run()
+        except MulandRunError as e:
+            raise HTTPError(500, exception=e)
+
+        bottle.response.headers['Content-Type'] = 'application/json'
+        return json.dumps(mu.output_data)
+
+app = application = MulandWeb()
+
+if __name__ == '__main__':
+    app.run(host = '', port = 8000)
