@@ -180,24 +180,27 @@ class MulandWeb:
             raise bottle.HTTPError(404)
 
         # Prepare data
-        data_in = bottle.request.json()
-        if not isinstance(data_in, dict):
-            raise bottle.HTTPError(400, 'JSON root isn\'t a dict')
-        mudata = {}
-        for key, value in data_in.items():
-            if key not in Muland.input_files:
-                continue
-            if not isinstance(value, list):
-                raise bottle.HTTPError(400, 'Input "%s" isn\'t a list' % key)
-            if len(value) > 0:
-                rowlenght = len(value[0])
-                if any((len(row) != rowlength for row in value)):
-                    raise bottle.HTTPError(400, 'Variable length size for input "%s"' % key)
-            mudata[key] = value
+        data_in = bottle.request.json
+        if data_in is not None:
+            if not isinstance(data_in, dict):
+                raise bottle.HTTPError(400, 'JSON root isn\'t a dict')
+            mudata = {}
+            for key, value in data_in.items():
+                if key not in Muland.input_files:
+                    continue
+                if not isinstance(value, list):
+                    raise bottle.HTTPError(400, 'Input "%s" isn\'t a list' % key)
+                if len(value) > 0:
+                    rowlenght = len(value[0])
+                    if any((len(row) != rowlength for row in value)):
+                        raise bottle.HTTPError(400, 'Variable length size for input "%s"' % key)
+                mudata[key] = value
+        else:
+            mudata = {}
 
         # Run Mu-Land
         try:
-            mu = Muland(model)
+            mu = Muland(model, **mudata)
         except ModelNotFound:
             raise bottle.HTTPError(404)
         try:
@@ -212,4 +215,11 @@ class MulandWeb:
 app = application = MulandWeb()
 
 if __name__ == '__main__':
-    app.run(host = '', port = 8000)
+    import os
+    cores = os.cpu_count()
+    if cores is not None:
+        workers = 2 * cores + 1
+    else:
+        workers = 9
+    app.run(host='', port=8000, server='gunicorn',
+            workers=workers)
