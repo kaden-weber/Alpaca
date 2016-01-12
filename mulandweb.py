@@ -58,6 +58,14 @@ class Muland:
         self.model_dir = str(Path(model_folder, model))
         self.output_data = {}
 
+    def __getattr__(self, name):
+        '''Interface to output_data keys'''
+        try:
+            return self.output_data[name]
+        except KeyError:
+            pass
+        raise AttributeError('No attribute or output data named \'%s\'' % name)
+
     def _populate_working_dir(self, working_dir):
         '''Prepares data for Muland reading'''
         # Create input and output directories
