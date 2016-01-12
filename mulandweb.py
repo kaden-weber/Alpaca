@@ -175,19 +175,37 @@ class MulandWeb:
 
     def post_handler(self, model):
         '''Handles POST requests to server'''
+        # Validate model name
         if self._model_re.match(model) is None:
             raise bottle.HTTPError(404)
 
+        # Prepare data
+        data_in = bottle.request.json()
+        if not isinstance(data_in, dict):
+            raise bottle.HTTPError(400, 'JSON root isn\'t a dict')
+        mudata = {}
+        for key, value in data_in.items():
+            if key not in Muland.input_files:
+                continue
+            if not isinstance(value, list):
+                raise bottle.HTTPError(400, 'Input "%s" isn\'t a list' % key)
+            if len(value) > 0:
+                rowlenght = len(value[0])
+                if any((len(row) != rowlength for row in value)):
+                    raise bottle.HTTPError(400, 'Variable length size for input "%s"' % key)
+            mudata[key] = value
+
+        # Run Mu-Land
         try:
             mu = Muland(model)
         except ModelNotFound:
             raise bottle.HTTPError(404)
-
         try:
             mu.run()
         except MulandRunError as e:
             raise HTTPError(500, exception=e)
 
+        # Send response
         bottle.response.headers['Content-Type'] = 'application/json'
         return json.dumps(mu.output_data)
 
