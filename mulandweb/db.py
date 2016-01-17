@@ -5,7 +5,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, Text
 from geoalchemy2 import Geometry
 
-engine = create_engine('postgresql://gis:gis@localhost/gis')
+engine = create_engine('postgresql://leandro:manhangis@colby/leandro')
 Base = declarative_base()
 
 class Zones(Base):
