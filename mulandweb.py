@@ -13,7 +13,6 @@ class MulandWeb:
     def __init__(self):
         self.app = bottle.Bottle()
         self.app.post('/<model>', callback=self.post_handler)
-        self.app.get('/<model>', callback=self.post_handler)
 
     def __getattr__(self, name):
         '''Fallback to bottle app attributes'''
