@@ -4,6 +4,8 @@ from collections import namedtuple
 from sqlalchemy.orm import sessionmaker
 from . import db
 
+__all__ = ['Zone', 'Zones']
+
 Zone = namedtuple('Zone', ['id', 'info'])
 
 class Zones:
@@ -28,3 +30,4 @@ class Zones:
 
     def update(self, id, info):
         '''Updates zone information'''
+        pass

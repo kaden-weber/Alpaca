@@ -5,6 +5,8 @@ from pathlib import Path
 import os, tempfile, subprocess
 import csv
 
+from . import config
+
 class MulandException(Exception):
     pass
 
@@ -20,9 +22,9 @@ class MulandRunError(MulandException):
 class Muland:
     '''Access Muland Application'''
 
-    muland_binary = 'bin/muland'
-    model_folder = 'model'
-    work_folder = 'work'
+    muland_binary = config.muland_binary
+    model_folder = config.muland_model
+    work_folder = config.muland_work
 
     input_files = ['agents', 'agents_zones', 'bids_adjustments',
     'bids_functions', 'demand', 'demand_exogenous_cutoff',
