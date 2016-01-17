@@ -13,5 +13,5 @@ setup(name='mulandweb',
       install_requires=[
         'bottle',
         'gunicorn',
-      ]
+      ],
       zip_safe=False)
