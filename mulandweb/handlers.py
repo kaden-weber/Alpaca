@@ -5,7 +5,7 @@ import bottle
 import re
 import json
 
-from muland import Muland, ModelNotFound, MulandRunError
+from .muland import Muland, ModelNotFound, MulandRunError
 from . import app
 
 __all__ = ['post_handler']
