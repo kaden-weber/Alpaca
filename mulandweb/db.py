@@ -1,7 +1,7 @@
 # coding: utf-8
 
 from sqlalchemy import create_engine, Table, Column, MetaData
-from sqlalchemy import Integer, String, Float, JSON, ARRAY, ForeignKey
+from sqlalchemy import Integer, String, Float, ARRAY, ForeignKey
 from geoalchemy2 import Geometry
 import config
 
@@ -19,67 +19,66 @@ markets = Table('markets', meta,
 )
 
 rent_adjustments = Table('rent_adjustments', meta,
-    Column('id', Integer, primary_key=True),
-    Column('types_id', None, ForeignKey('real_estate_types.id')),
-    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('types_id', None, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
     Column('adjustment', Float),
 )
 
 supply = Table('supply', meta,
-    Column('id', Integer, primary_key=True),
-    Column('types_id', None, ForeignKey('real_estate_types.id')),
-    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('types_id', None, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
     Column('nrest', Float),
 )
 
 real_estates_zones = Table('real_estates_zones', meta,
-    Column('id', Integer, primary_key=True),
-    Column('types_id', None, ForeignKey('real_estate_types.id')),
-    Column('zones_id', None, ForeignKey('zones.id')),
-    Column('markets_id', None, ForeignKey('markets.id')),
-    Column('data_columns', ARRAY(String, zero_indexes=True)),
-    Column('data', JSON),
+    Column('types_id', None, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
+    Column('markets_id', None, ForeignKey('markets.id'), primary_key=True),
+    Column('header', ARRAY(String, zero_indexes=True)),
+    Column('data', ARRAY(Float, zero_indexes=True)),
 )
 
 agents = Table('agents', meta,
     Column('id', Integer, primary_key=True),
     Column('markets_id', None, ForeignKey('markets.id')),
     Column('aggra_id', Integer),
-    Column('data_columns', ARRAY(String, zero_indexes=True)),
-    Column('data', JSON),
+    Column('header', ARRAY(String, zero_indexes=True)),
+    Column('data', ARRAY(Float, zero_indexes=True)),
 )
 
 zones = Table('zones', meta,
     Column('id', Integer, primary_key=True),
     Column('area', Geometry('POLYGON', srid=900913, spatial_index=True)),
-    Column('data_columns', ARRAY(String, zero_indexes=True)),
-    Column('data', JSON),
+    Column('header', ARRAY(String, zero_indexes=True)),
+    Column('data', ARRAY(Float, zero_indexes=True)),
+)
+
+demand = Table('demand', meta,
+    Column('id', Integer, primary_key=True),
+    Column('demand', Float),
 )
 
 subsidies = Table('subsidies', meta,
-    Column('id', Integer, primary_key=True),
-    Column('demand_id', Integer),
-    Column('types_id', None, ForeignKey('real_estate_types.id')),
-    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('demand_id', None, ForeignKey('demand.id'), primary_key=True),
+    Column('types_id', None, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
     Column('subsidies', Float),
 )
 
 demand_exogenous_cutoff = Table('demand_exogenous_cutoff', meta,
-    Column('id', Integer, primary_key=True),
-    Column('demand_id', Integer),
-    Column('types_id', None, ForeignKey('real_estate_types.id')),
-    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('demand_id', None, ForeignKey('demand.id'), primary_key=True),
+    Column('types_id', None, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
     Column('dcutoff', Float),
 )
 
 agents_zones = Table('agents_zones', meta,
-    Column('id', Integer, primary_key=True),
-    Column('demand_id', Integer),
-    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('demand_id', None, ForeignKey('demand.id'), primary_key=True),
+    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
     Column('acc', Float),
     Column('att', Float),
-    Column('data_columns', ARRAY(String, zero_indexes=True)),
-    Column('data', JSON),
+    Column('header', ARRAY(String, zero_indexes=True)),
+    Column('data', ARRAY(Float, zero_indexes=True)),
 )
 
 meta.create_all(engine)
