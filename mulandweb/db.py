@@ -1,16 +1,85 @@
 # coding: utf-8
 
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, Text
+from sqlalchemy import create_engine, Table, Column, MetaData
+from sqlalchemy import Integer, String, Float, JSON, ARRAY, ForeignKey
 from geoalchemy2 import Geometry
 import config
 
 engine = create_engine(config.db_url)
-Base = declarative_base()
+meta = MetaData()
 
-class Zones(Base):
-    __tablename__ = 'zones'
-    id = Column(Integer, primary_key=True)
-    area = Column(Geometry('POLYGON', srid=900913, spatial_index=True))
-    info = Column(Text)
+real_estate_types = Table('real_estate_types', meta,
+    Column('id', Integer, primary_key=True),
+    Column('description', String),
+)
+
+markets = Table('markets', meta,
+    Column('id', Integer, primary_key=True),
+    Column('description', String),
+)
+
+rent_adjustments = Table('rent_adjustments', meta,
+    Column('id', Integer, primary_key=True),
+    Column('types_id', None, ForeignKey('real_estate_types.id')),
+    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('adjustment', Float),
+)
+
+supply = Table('supply', meta,
+    Column('id', Integer, primary_key=True),
+    Column('types_id', None, ForeignKey('real_estate_types.id')),
+    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('nrest', Float),
+)
+
+real_estates_zones = Table('real_estates_zones', meta,
+    Column('id', Integer, primary_key=True),
+    Column('types_id', None, ForeignKey('real_estate_types.id')),
+    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('markets_id', None, ForeignKey('markets.id')),
+    Column('data_columns', ARRAY(String, zero_indexes=True)),
+    Column('data', JSON),
+)
+
+agents = Table('agents', meta,
+    Column('id', Integer, primary_key=True),
+    Column('markets_id', None, ForeignKey('markets.id')),
+    Column('aggra_id', Integer),
+    Column('data_columns', ARRAY(String, zero_indexes=True)),
+    Column('data', JSON),
+)
+
+zones = Table('zones', meta,
+    Column('id', Integer, primary_key=True),
+    Column('area', Geometry('POLYGON', srid=900913, spatial_index=True)),
+    Column('data_columns', ARRAY(String, zero_indexes=True)),
+    Column('data', JSON),
+)
+
+subsidies = Table('subsidies', meta,
+    Column('id', Integer, primary_key=True),
+    Column('demand_id', Integer),
+    Column('types_id', None, ForeignKey('real_estate_types.id')),
+    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('subsidies', Float),
+)
+
+demand_exogenous_cutoff = Table('demand_exogenous_cutoff', meta,
+    Column('id', Integer, primary_key=True),
+    Column('demand_id', Integer),
+    Column('types_id', None, ForeignKey('real_estate_types.id')),
+    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('dcutoff', Float),
+)
+
+agents_zones = Table('agents_zones', meta,
+    Column('id', Integer, primary_key=True),
+    Column('demand_id', Integer),
+    Column('zones_id', None, ForeignKey('zones.id')),
+    Column('acc', Float),
+    Column('att', Float),
+    Column('data_columns', ARRAY(String, zero_indexes=True)),
+    Column('data', JSON),
+)
+
+meta.create_all(engine)
