@@ -81,9 +81,34 @@ class MulandDB:
 
         return records
 
-# agents_zones
-#"H_IDX";"I_IDX";"ACC";"P_LN_ATT"
-#1.00;1.00;0.7308194;0.0000000
+    # agents_zones
+    #"H_IDX";"I_IDX";"ACC";"P_LN_ATT"
+    #1.00;1.00;0.7308194;0.0000000
+    def _get_agents_zones_records(self):
+        '''Get agents records'''
+        db_models = db.models
+        db_zones = db.zones
+        db_azones = db.agents_zones
+        point_wkt = 'POINT(%d %d)' % (self.x, self.y)
+
+        s = (select([db_azones.c.agents_id,
+                     db_azones.c.zones_id,
+                     db_azones.c.acc,
+                     db_azones.c.att,
+                     db_azones.c.data])
+            .select_from(db_azones
+                .join(db_zones, db_azones.c.zones_id == db_zones.c.id)
+                .join(db_models, db_azones.c.models_id == db_models.c.id))
+            .where(func.ST_Contains(db_zones.c.area, point_wkt))
+            .where(db_models.c.name == self.model))
+
+        records = []
+        for row in db.engine.execute(s):
+            data = row[0:4]
+            data.extend(row[5])
+            records.append(data)
+
+        return records
 
 # bids_adjustments
 #"H_IDX";"V_IDX";"I_IDX";"BIDADJ"
