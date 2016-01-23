@@ -1,9 +1,10 @@
 # coding: utf-8
 
 from sqlalchemy import create_engine, Table, Column, MetaData
-from sqlalchemy import Integer, String, Float, ARRAY, ForeignKey
+from sqlalchemy import Integer, String, Float, ForeignKey, Sequence
+from sqlalchemy.dialects.postgresql import ARRAY
 from geoalchemy2 import Geometry
-import config
+from . import config
 
 engine = create_engine(config.db_url)
 meta = MetaData()
@@ -11,6 +12,8 @@ meta = MetaData()
 models = Table('models', meta,
     Column('id', Integer, Sequence('models_id_seq'), primary_key=True),
     Column('name', String),
+    Column('zones_header', ARRAY(String, zero_indexes=True)),
+    Column('agents_header', ARRAY(String, zero_indexes=True)),
 )
 
 real_estate_types = Table('real_estate_types', meta,
@@ -51,7 +54,7 @@ agents = Table('agents', meta,
     Column('models_id', None, ForeignKey('models.id'), primary_key=True),
     Column('markets_id', None, ForeignKey('markets.id')),
     Column('aggra_id', Integer),
-    Column('header', ARRAY(String, zero_indexes=True)),
+    Column('upperbb', Float)
     Column('data', ARRAY(Float, zero_indexes=True)),
 )
 
@@ -59,7 +62,6 @@ zones = Table('zones', meta,
     Column('id', Integer, primary_key=True),
     Column('models_id', None, ForeignKey('models.id'), primary_key=True),
     Column('area', Geometry('POLYGON', srid=900913, spatial_index=True)),
-    Column('header', ARRAY(String, zero_indexes=True)),
     Column('data', ARRAY(Float, zero_indexes=True)),
 )
 
@@ -95,4 +97,4 @@ agents_zones = Table('agents_zones', meta,
     Column('data', ARRAY(Float, zero_indexes=True)),
 )
 
-meta.create_all(engine)
+#meta.create_all(engine)
