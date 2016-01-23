@@ -14,6 +14,7 @@ models = Table('models', meta,
     Column('name', String),
     Column('zones_header', ARRAY(String, zero_indexes=True)),
     Column('agents_header', ARRAY(String, zero_indexes=True)),
+    Column('agents_zones_header', ARRAY(String, zero_indexes=True)),
 )
 
 real_estate_types = Table('real_estate_types', meta,
@@ -27,32 +28,32 @@ markets = Table('markets', meta,
 )
 
 rent_adjustments = Table('rent_adjustments', meta,
-    Column('types_id', None, ForeignKey('real_estate_types.id'), primary_key=True),
-    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
-    Column('models_id', None, ForeignKey('models.id'), primary_key=True),
+    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', Integer, ForeignKey('zones.id'), primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
     Column('adjustment', Float),
 )
 
 supply = Table('supply', meta,
-    Column('types_id', None, ForeignKey('real_estate_types.id'), primary_key=True),
-    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
-    Column('models_id', None, ForeignKey('models.id'), primary_key=True),
+    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', Integer, ForeignKey('zones.id'), primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
     Column('nrest', Float),
 )
 
 real_estates_zones = Table('real_estates_zones', meta,
-    Column('types_id', None, ForeignKey('real_estate_types.id'), primary_key=True),
-    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
-    Column('markets_id', None, ForeignKey('markets.id'), primary_key=True),
-    Column('models_id', None, ForeignKey('models.id'), primary_key=True),
+    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', Integer, ForeignKey('zones.id'), primary_key=True),
+    Column('markets_id', Integer, ForeignKey('markets.id'), primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
     Column('header', ARRAY(String, zero_indexes=True)),
     Column('data', ARRAY(Float, zero_indexes=True)),
 )
 
 agents = Table('agents', meta,
     Column('id', Integer, primary_key=True),
-    Column('models_id', None, ForeignKey('models.id'), primary_key=True),
-    Column('markets_id', None, ForeignKey('markets.id')),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
+    Column('markets_id', Integer, ForeignKey('markets.id')),
     Column('aggra_id', Integer),
     Column('upperbb', Float)
     Column('data', ARRAY(Float, zero_indexes=True)),
@@ -60,40 +61,39 @@ agents = Table('agents', meta,
 
 zones = Table('zones', meta,
     Column('id', Integer, primary_key=True),
-    Column('models_id', None, ForeignKey('models.id'), primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
     Column('area', Geometry('POLYGON', srid=900913, spatial_index=True)),
     Column('data', ARRAY(Float, zero_indexes=True)),
 )
 
 demand = Table('demand', meta,
-    Column('id', Integer, primary_key=True),
-    Column('models_id', None, ForeignKey('models.id'), primary_key=True),
+    Column('agents_id', Integer, ForeignKey('agents.id'), primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
     Column('demand', Float),
 )
 
 subsidies = Table('subsidies', meta,
-    Column('demand_id', None, ForeignKey('demand.id'), primary_key=True),
-    Column('types_id', None, ForeignKey('real_estate_types.id'), primary_key=True),
-    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
-    Column('models_id', None, ForeignKey('models.id'), primary_key=True),
+    Column('agents_id', Integer, ForeignKey('agents.id'), primary_key=True),
+    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', Integer, ForeignKey('zones.id'), primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
     Column('subsidies', Float),
 )
 
 demand_exogenous_cutoff = Table('demand_exogenous_cutoff', meta,
-    Column('demand_id', None, ForeignKey('demand.id'), primary_key=True),
-    Column('types_id', None, ForeignKey('real_estate_types.id'), primary_key=True),
-    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
-    Column('models_id', None, ForeignKey('models.id'), primary_key=True),
+    Column('agents_id', Integer, ForeignKey('agents.id'), primary_key=True),
+    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', Integer, ForeignKey('zones.id'), primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
     Column('dcutoff', Float),
 )
 
 agents_zones = Table('agents_zones', meta,
-    Column('demand_id', None, ForeignKey('demand.id'), primary_key=True),
-    Column('zones_id', None, ForeignKey('zones.id'), primary_key=True),
-    Column('models_id', None, ForeignKey('models.id'), primary_key=True),
+    Column('agents_id', Integer, ForeignKey('agents.id'), primary_key=True),
+    Column('zones_id', Integer, ForeignKey('zones.id'), primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
     Column('acc', Float),
     Column('att', Float),
-    Column('header', ARRAY(String, zero_indexes=True)),
     Column('data', ARRAY(Float, zero_indexes=True)),
 )
 
