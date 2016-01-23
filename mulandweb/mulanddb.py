@@ -2,7 +2,7 @@
 
 from math import pi, acos, sin, cos, sqrt, log, atan, exp
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 
 from . import db
 from .muland import MulandData
@@ -35,7 +35,7 @@ class MulandDB:
     # zones
     #"I_IDX";"INDAREA";"COMAREA";"SERVAREA";"TOTAREA";"TOTBUILT";"INCOMEHH";"DIST_ACC"
     #1.00;2.7441056;0.4679935;3.2301371;8968.0590000;10.9089400;0.00;2.8959340
-    def _get_zones_records():
+    def _get_zones_records(self):
         '''Get zones records'''
         point_wkt = 'POINT(%d %d)' % (self.x, self.y)
         zones_table = db.zones
@@ -46,7 +46,7 @@ class MulandDB:
                 models_table,
                 zones_table.c.models_id == models_table.c.id))
              .where(func.ST_Contains(zones_table.c.area, point_wkt))
-             .where(models_table.c.name == model)
+             .where(models_table.c.name == self.model)
         )
 
         records = []
@@ -57,9 +57,29 @@ class MulandDB:
 
         return records
 
-# agents
-#"IDAGENT";"IDMARKET";"IDAGGRA";"UPPERBB";"HHINC";"RHO";"FNIP";"ONES"
-#1.00;1.00;1.00;50000.00;674.8841398;11.8789000;0.00;1.00
+    # agents
+    #"IDAGENT";"IDMARKET";"IDAGGRA";"UPPERBB";"HHINC";"RHO";"FNIP";"ONES"
+    #1.00;1.00;1.00;50000.00;674.8841398;11.8789000;0.00;1.00
+    def _get_agents_records(self):
+        '''Get agents records'''
+        db_models = db.models
+        db_agents = db.agents
+
+        s = (select([db_agents.c.id,
+                     db_agents.c.markets_id,
+                     db_agents.c.aggra_id,
+                     db_agents.c.upperbb,
+                     db_agents.c.data])
+            .select_from(db_agents.join(db_models, db_agents.c.models_id == db_models.c.id))
+            .where(db_models.c.name == self.model))
+
+        records = []
+        for row in db.engine.execute(s):
+            data = row[0:4]
+            data.extend(row[5])
+            records.append(data)
+
+        return records
 
 # agents_zones
 #"H_IDX";"I_IDX";"ACC";"P_LN_ATT"
