@@ -155,9 +155,28 @@ class MulandDB:
 
         records = [list(row) for row in db.engine.execute(s)]
 
-# demand_exogenous_cutoff
-#"H_IDX";"V_IDX";"I_IDX";"DCUTOFF"
-#1.00;1.00;1.00;1.00
+    # demand_exogenous_cutoff
+    #"H_IDX";"V_IDX";"I_IDX";"DCUTOFF"
+    #1.00;1.00;1.00;1.00
+    def _get_demand_exogenous_cutoff(self):
+        '''Get demand_exogenous_cutoff records'''
+        db_decutoff = db.demand_exogenous_cutoff
+        db_models = db.models
+        db_zones = db.zones
+
+        s = (select([db_decutoff.c.agents_id,
+                     db_decutoff.c.types_id,
+                     db_decutoff.c.zones_id,
+                     db_decutoff.c.dcutoff])
+            .select_from(db_decutoff
+                .join(db_models, db_decutoff.models_id == db_models.c.id)
+                .join(db_zones, and_(db_decutoff.c.zones_id == db_zones.c.id,
+                                     db_decutoff.c.models_id == db_zones.models_id)))
+            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
+            .where(db_models.c.name == self.model))
+
+        records = [list(row) for row in db.engine.execute(s)]
+        return records
 
 # real_estates_zones
 #"V_IDX";"I_IDX";"M_IDX";"LOTSIZE";"BUILT";"IS_HOUSE";"IS_APT"
