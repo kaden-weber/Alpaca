@@ -110,13 +110,35 @@ class MulandDB:
 
         return records
 
-# bids_adjustments
-#"H_IDX";"V_IDX";"I_IDX";"BIDADJ"
-#1.00;1.00;1.00;0.0000000000
+    # bids_adjustments
+    #"H_IDX";"V_IDX";"I_IDX";"BIDADJ"
+    #1.00;1.00;1.00;0.0000000000
+    def _get_bids_adjustments(self):
+        '''Get bids_adjustments records'''
+        db_badj = db.bids_adjustments
+        db_zones = db.zones
+        db_models = db.models
 
-# bids_functions
-#"IDMARKET";"IDAGGRA";"IDATTRIB";"LINEAPAR";"CAGENT_X";"CREST_X";"CACC_X";"CZONES_X";"EXPPAR_X";"CAGENT_Y";"CREST_Y";"CACC_Y";"CZONES_Y";"EXPPAR_Y"
-#1.0000;1.0000;1.0000;15.7300;0.0000;5.0000;0.0000;0.0000;1.0000;0.0000;0.0000;0.0000;0.0000;0.0000
+        s = (select([db_badj.c.agents_id,
+                     db_badj.c.types_id,
+                     db_badj.c.zones_id,
+                     db_badj.c.bidadj])
+            .select_from(db_badj
+                .join(db_zones, and_(db_badj.c.zones_id == db_zones.c.id,
+                                     db_badj.c.models_id == db_zones.models_id))
+                .join(db_models, db_badj.c.models_id == db_models.c.id))
+            .where(func.ST_Contains(db_zones.c.area, point_wkt))
+            .where(db_models.c.name == self.model))
+
+        records = [row for row in db.engine.execute(s)]
+
+        return records
+
+    # bids_functions
+    #"IDMARKET";"IDAGGRA";"IDATTRIB";"LINEAPAR";"CAGENT_X";"CREST_X";"CACC_X";"CZONES_X";"EXPPAR_X";"CAGENT_Y";"CREST_Y";"CACC_Y";"CZONES_Y";"EXPPAR_Y"
+    #1.0000;1.0000;1.0000;15.7300;0.0000;5.0000;0.0000;0.0000;1.0000;0.0000;0.0000;0.0000;0.0000;0.0000
+    def _get_bids_functions(self):
+        pass
 
 # demand
 #"H_IDX";"DEMAND"
