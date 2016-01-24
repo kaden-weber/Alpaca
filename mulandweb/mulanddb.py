@@ -130,7 +130,7 @@ class MulandDB:
             .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
             .where(db_models.c.name == self.model))
 
-        records = [row for row in db.engine.execute(s)]
+        records = [list(row) for row in db.engine.execute(s)]
 
         return records
 
@@ -140,9 +140,20 @@ class MulandDB:
     def _get_bids_functions(self):
         pass
 
-# demand
-#"H_IDX";"DEMAND"
-#1.00;10562.7974402
+    # demand
+    #"H_IDX";"DEMAND"
+    #1.00;10562.7974402
+    def _get_demand(self):
+        '''Get demand records'''
+        s = (select([db_demand.c.agents_id,
+                     db_demand.c.demand])
+            .select_from(db_demand
+                .join(db_agents, and_(db_demand.c.agents_id == db_agents.c.id,
+                                      db_demand.c.models_id == db.agents.c.models_id))
+                .join(db_models, db_demand.c.models_id == db_models.c.id))
+            .where(db_models.c.name == self.model))
+
+        records = [list(row) for row in db.engine.execute(s)]
 
 # demand_exogenous_cutoff
 #"H_IDX";"V_IDX";"I_IDX";"DCUTOFF"
