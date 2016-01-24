@@ -108,4 +108,14 @@ agents_zones = Table('agents_zones', meta,
     ForeignKeyConstraint(['agents_id', 'models_id'], ['agents.id', 'agents.models_id']),
 )
 
+bids_adjustments = Table('bids_adjustments', meta,
+    Column('agents_id', Integer, primary_key=True),
+    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('zones_id', Integer, primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
+    Column('bidadj', Float),
+    ForeignKeyConstraint(['zones_id', 'models_id'], ['zones.id', 'zones.models_id']),
+    ForeignKeyConstraint(['agents_id', 'models_id'], ['agents.id', 'agents.models_id']),
+)
+
 #meta.create_all(engine)
