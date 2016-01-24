@@ -145,15 +145,17 @@ class MulandDB:
     #1.00;10562.7974402
     def _get_demand(self):
         '''Get demand records'''
+        db_demand = db.demand
+        db_models = db.models
+
         s = (select([db_demand.c.agents_id,
                      db_demand.c.demand])
             .select_from(db_demand
-                .join(db_agents, and_(db_demand.c.agents_id == db_agents.c.id,
-                                      db_demand.c.models_id == db.agents.c.models_id))
                 .join(db_models, db_demand.c.models_id == db_models.c.id))
             .where(db_models.c.name == self.model))
 
         records = [list(row) for row in db.engine.execute(s)]
+        return records
 
     # demand_exogenous_cutoff
     #"H_IDX";"V_IDX";"I_IDX";"DCUTOFF"
