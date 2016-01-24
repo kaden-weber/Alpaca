@@ -31,13 +31,13 @@ class MulandDB:
         self.model = model
         self.x = x
         self.y = y
+        self.point_wkt = 'POINT(%d %d)' % (x, y)
 
     # zones
     #"I_IDX";"INDAREA";"COMAREA";"SERVAREA";"TOTAREA";"TOTBUILT";"INCOMEHH";"DIST_ACC"
     #1.00;2.7441056;0.4679935;3.2301371;8968.0590000;10.9089400;0.00;2.8959340
     def _get_zones_records(self):
         '''Get zones records'''
-        point_wkt = 'POINT(%d %d)' % (self.x, self.y)
         zones_table = db.zones
         models_table = db.models
 
@@ -45,7 +45,7 @@ class MulandDB:
              .select_from(zones_table.join(
                 models_table,
                 zones_table.c.models_id == models_table.c.id))
-             .where(func.ST_Contains(zones_table.c.area, point_wkt))
+             .where(func.ST_Contains(zones_table.c.area, self.point_wkt))
              .where(models_table.c.name == self.model)
         )
 
@@ -89,7 +89,6 @@ class MulandDB:
         db_models = db.models
         db_zones = db.zones
         db_azones = db.agents_zones
-        point_wkt = 'POINT(%d %d)' % (self.x, self.y)
 
         s = (select([db_azones.c.agents_id,
                      db_azones.c.zones_id,
@@ -100,7 +99,7 @@ class MulandDB:
                 .join(db_zones, and_(db_azones.c.zones_id == db_zones.c.id,
                                      db_azones.c.models_id == db_zones.c.models_id))
                 .join(db_models, db_azones.c.models_id == db_models.c.id))
-            .where(func.ST_Contains(db_zones.c.area, point_wkt))
+            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
             .where(db_models.c.name == self.model))
 
         records = []
@@ -128,7 +127,7 @@ class MulandDB:
                 .join(db_zones, and_(db_badj.c.zones_id == db_zones.c.id,
                                      db_badj.c.models_id == db_zones.models_id))
                 .join(db_models, db_badj.c.models_id == db_models.c.id))
-            .where(func.ST_Contains(db_zones.c.area, point_wkt))
+            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
             .where(db_models.c.name == self.model))
 
         records = [row for row in db.engine.execute(s)]
