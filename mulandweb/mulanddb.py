@@ -97,7 +97,8 @@ class MulandDB:
                      db_azones.c.att,
                      db_azones.c.data])
             .select_from(db_azones
-                .join(db_zones, db_azones.c.zones_id == db_zones.c.id)
+                .join(db_zones, and_(db_azones.c.zones_id == db_zones.c.id,
+                                     db_azones.c.models_id == db_zones.c.models_id))
                 .join(db_models, db_azones.c.models_id == db_models.c.id))
             .where(func.ST_Contains(db_zones.c.area, point_wkt))
             .where(db_models.c.name == self.model))
