@@ -138,7 +138,28 @@ class MulandDB:
     #"IDMARKET";"IDAGGRA";"IDATTRIB";"LINEAPAR";"CAGENT_X";"CREST_X";"CACC_X";"CZONES_X";"EXPPAR_X";"CAGENT_Y";"CREST_Y";"CACC_Y";"CZONES_Y";"EXPPAR_Y"
     #1.0000;1.0000;1.0000;15.7300;0.0000;5.0000;0.0000;0.0000;1.0000;0.0000;0.0000;0.0000;0.0000;0.0000
     def _get_bids_functions(self):
-        pass
+        db_bfunc = db.bids_functions
+        db_models = db.models
+
+        s = (select([db_bfunc.c.markets_id,
+                     db_bfunc.c.aggra_id,
+                     db_bfunc.c.idattrib,
+                     db_bfunc.c.lineapar,
+                     db_bfunc.c.cagent_x,
+                     db_bfunc.c.crest_x,
+                     db_bfunc.c.cacc_x,
+                     db_bfunc.c.czones_x,
+                     db_bfunc.c.exppar_x,
+                     db_bfunc.c.cagent_y,
+                     db_bfunc.c.crest_y,
+                     db_bfunc.c.cacc_y,
+                     db_bfunc.c.czones_y,
+                     db_bfunc.c.exppar_y])
+            .select_from(db_bfunc
+                .join(db_models, db_bfunc.c.models_id == db_models.c.id))
+            .where(db_models.c.name == self.model))
+
+        records = [list(row) for row in db.engine.execute(s)]
 
     # demand
     #"H_IDX";"DEMAND"
