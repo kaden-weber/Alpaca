@@ -16,6 +16,7 @@ models = Table('models', meta,
     Column('zones_header', ARRAY(String, zero_indexes=True)),
     Column('agents_header', ARRAY(String, zero_indexes=True)),
     Column('agents_zones_header', ARRAY(String, zero_indexes=True)),
+    Column('real_estates_zones_header', ARRAY(String, zero_indexes=True)),
 )
 
 real_estate_types = Table('real_estate_types', meta,
@@ -49,7 +50,6 @@ real_estates_zones = Table('real_estates_zones', meta,
     Column('zones_id', Integer, primary_key=True),
     Column('markets_id', Integer, ForeignKey('markets.id'), primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('header', ARRAY(String, zero_indexes=True)),
     Column('data', ARRAY(Float, zero_indexes=True)),
     ForeignKeyConstraint(['zones_id', 'models_id'], ['zones.id', 'zones.models_id']),
 )
