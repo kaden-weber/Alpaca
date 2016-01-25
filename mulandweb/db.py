@@ -118,4 +118,23 @@ bids_adjustments = Table('bids_adjustments', meta,
     ForeignKeyConstraint(['agents_id', 'models_id'], ['agents.id', 'agents.models_id']),
 )
 
+bids_functions = Table('bids_functions', meta,
+    Column('id', Integer, primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
+    Column('markets_id', Integer, ForeignKey('markets.id')),
+    Column('aggra_id', Integer),
+    Column('idattrib', Float),
+    Column('lineapar', Float),
+    Column('cagent_x', Float),
+    Column('crest_x', Float),
+    Column('cacc_x', Float),
+    Column('czones_x', Float),
+    Column('exppar_x', Float),
+    Column('cagent_y', Float),
+    Column('crest_y', Float),
+    Column('cacc_y', Float),
+    Column('czones_y', Float),
+    Column('exppar_y', Float),
+)
+
 #meta.create_all(engine)
