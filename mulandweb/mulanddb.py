@@ -299,6 +299,24 @@ class MulandDB:
         records = [list(row) for row in db.engine.execute(s)]
         return records
 
-# supply
-#"V_IDX";"I_IDX";"NREST"
-#1.00;1.00;0.0000000000
+    # supply
+    #"V_IDX";"I_IDX";"NREST"
+    #1.00;1.00;0.0000000000
+    def _get_supply(self):
+        '''Get supply records'''
+        db_supply = db.supply
+        db_models = db.models
+        db_zones = db.zones
+
+        s = (select([db_supply.c.types_id,
+                     db_supply.c.zones_id,
+                     db_supply.c.nrest])
+            .select_from(db_supply
+                .join(db_models, db_supply.c.models_id == db_models.c.id)
+                .join(db_zones, and_(db_supply.c.zones_id == db_zones.c.id,
+                                     db_supply.c.models_id == db_zones.c.models_id)))
+            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
+            .where(db_models.c.name == self.model))
+
+        records = [list(row) for row in db.engine.execute(s)]
+        return records
