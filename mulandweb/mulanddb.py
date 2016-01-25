@@ -201,9 +201,33 @@ class MulandDB:
         records = [list(row) for row in db.engine.execute(s)]
         return records
 
-# real_estates_zones
-#"V_IDX";"I_IDX";"M_IDX";"LOTSIZE";"BUILT";"IS_HOUSE";"IS_APT"
-#1.00;1.00;1.00;3.4800000;0.027670;1.00;0.00
+    # real_estates_zones
+    #"V_IDX";"I_IDX";"M_IDX";"LOTSIZE";"BUILT";"IS_HOUSE";"IS_APT"
+    #1.00;1.00;1.00;3.4800000;0.027670;1.00;0.00
+    def _get_real_estates_zones(self):
+        '''Get real_estates_zones records'''
+        db_rezones = db.real_estates_zones
+        db_zones = db.zones
+        db_models = db.models
+
+        s = (select([db_rezones.c.types_id,
+                     db_rezones.c.zones_id
+                     db_rezones.c.markets_id,
+                     db_rezones.c.data])
+            .select_from(db_rezones
+                .join(db_models, db_rezones.c.models_id == db_models.c.id)
+                .join(db_zones, _and(db_rezones.c.zones_id == db_zones.c.id,
+                                     db_rezones.c.models_id == db_zones.c.models_id)))
+            .where(db_models.c.name == self.model)
+            .where(func.ST_Contains(db_zones.c.area, self.point_wkt)))
+
+        records = []
+        for row in db.engine.execute(s):
+            data = row[0:3]
+            data.extend(row[4])
+            records.append(data)
+
+        return records
 
 # rent_adjustments
 #"V_IDX";"I_IDX";"RENTADJ"
