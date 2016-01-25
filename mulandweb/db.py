@@ -137,4 +137,19 @@ bids_functions = Table('bids_functions', meta,
     Column('exppar_y', Float),
 )
 
+rent_functions = Table('rent_functions', meta,
+    Column('id', Integer, primary_key=True),
+    Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
+    Column('markets_id', Integer, ForeignKey('markets.id')),
+    Column('idattrib', Float),
+    Column('scalepar', Float),
+    Column('lineapar', Float),
+    Column('crest_x', Float),
+    Column('czones_x', Float),
+    Column('exppar_x', Float),
+    Column('crest_y', Float),
+    Column('czones_y', Float),
+    Column('exppar_y', Float),
+)
+
 #meta.create_all(engine)
