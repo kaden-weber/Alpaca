@@ -276,9 +276,28 @@ class MulandDB:
         records = [list(row) for row in db.engine.execute(s)]
         return records
 
-# subsidies
-#"H_IDX";"V_IDX";"I_IDX";"SUBSIDIES"
-#1.00;1.00;1.00;0.0000000000
+    # subsidies
+    #"H_IDX";"V_IDX";"I_IDX";"SUBSIDIES"
+    #1.00;1.00;1.00;0.0000000000
+    def _get_subsidies(self):
+        '''Get subsidies records'''
+        db_subsidies = db.subsidies
+        db_models = db.models
+        db_zones = db.zones
+
+        s = (select([db_subsidies.c.agents_id,
+                     db_subsidies.c.types_id,
+                     db_subsidies.c.zones_id,
+                     db_subsidies.c.subsidies])
+            .select_from(db_subsidies
+                .join(db_models, db_subsidies.c.models_id == db_models.c.id)
+                .join(db_zones, and_(db_subsidies.c.zones_id == db_zones.c.id,
+                                     db_subsidies.c.models_id == db_zones.c.models_id)))
+            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
+            .where(db_models.c.name == self.model))
+
+        records = [list(row) for row in db.engine.execute(s)]
+        return records
 
 # supply
 #"V_IDX";"I_IDX";"NREST"
