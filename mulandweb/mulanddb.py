@@ -229,9 +229,27 @@ class MulandDB:
 
         return records
 
-# rent_adjustments
-#"V_IDX";"I_IDX";"RENTADJ"
-#1.00;1.00;0.00
+    # rent_adjustments
+    #"V_IDX";"I_IDX";"RENTADJ"
+    #1.00;1.00;0.00
+    def _get_rent_adjustments(self):
+        '''Get rent_adjustments records'''
+        db_rentadj = db.rent_adjustments
+        db_models = db.models
+        db_zones = db.zones
+
+        s = (select([db_rentadj.c.types_id,
+                     db_rentadj.c.zones_id,
+                     db_rentadj.c.adjustment])
+            .select_from(db_rentadj
+                .join(db_models, db_rentadj.c.models_id == db_models.c.id)
+                .join(db_zones, and_(db_rentadj.c.zones_id == db_zones.c.id,
+                                     db_rentadj.c.models_id == db_zones.c.models_id)))
+            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
+            .where(db_models.c.name == self.model))
+
+        records = [list(row) for row in db.engine.execute(s)]
+        return records
 
 # rent_functions
 #"IDMARKET";"IDATTRIB";"SCALEPAR";"LINEAPAR";"CREST_X";"CZONES_X";"EXPPAR_X";"CREST_Y";"CZONES_Y";"EXPPAR_Y"
