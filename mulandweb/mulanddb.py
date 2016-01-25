@@ -251,9 +251,30 @@ class MulandDB:
         records = [list(row) for row in db.engine.execute(s)]
         return records
 
-# rent_functions
-#"IDMARKET";"IDATTRIB";"SCALEPAR";"LINEAPAR";"CREST_X";"CZONES_X";"EXPPAR_X";"CREST_Y";"CZONES_Y";"EXPPAR_Y"
-#1.00;1.00;0.4000000000;0.323614000;5.00;0.00;1.00;0.00;0.00;0.00
+    # rent_functions
+    #"IDMARKET";"IDATTRIB";"SCALEPAR";"LINEAPAR";"CREST_X";"CZONES_X";"EXPPAR_X";"CREST_Y";"CZONES_Y";"EXPPAR_Y"
+    #1.00;1.00;0.4000000000;0.323614000;5.00;0.00;1.00;0.00;0.00;0.00
+    def _get_rent_functions(self):
+        '''Get rent_functions records'''
+        db_rentfunc = db.rent_functions
+        db_models = db.models
+
+        s = (select([db_rentfunc.c.markets_id,
+                     db_rentfunc.c.idattrib,
+                     db_rentfunc.c.scalepar,
+                     db_rentfunc.c.lineapar,
+                     db_rentfunc.c.crest_x,
+                     db_rentfunc.c.czones_x,
+                     db_rentfunc.c.exppar_x,
+                     db_rentfunc.c.crest_y,
+                     db_rentfunc.c.czones_y,
+                     db_rentfunc.c.exppar_y])
+            .select_from(db_rentfunc
+                .join(db_models, db_rentfunc.c.models_id == db_models.c.id))
+            .where(db_models.c.name == self.model))
+
+        records = [list(row) for row in db.engine.execute(s)]
+        return records
 
 # subsidies
 #"H_IDX";"V_IDX";"I_IDX";"SUBSIDIES"
