@@ -125,7 +125,7 @@ class MulandDB:
                      db_badj.c.bidadj])
             .select_from(db_badj
                 .join(db_zones, and_(db_badj.c.zones_id == db_zones.c.id,
-                                     db_badj.c.models_id == db_zones.models_id))
+                                     db_badj.c.models_id == db_zones.c.models_id))
                 .join(db_models, db_badj.c.models_id == db_models.c.id))
             .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
             .where(db_models.c.name == self.model))
@@ -171,9 +171,9 @@ class MulandDB:
                      db_decutoff.c.zones_id,
                      db_decutoff.c.dcutoff])
             .select_from(db_decutoff
-                .join(db_models, db_decutoff.models_id == db_models.c.id)
+                .join(db_models, db_decutoff.c.models_id == db_models.c.id)
                 .join(db_zones, and_(db_decutoff.c.zones_id == db_zones.c.id,
-                                     db_decutoff.c.models_id == db_zones.models_id)))
+                                     db_decutoff.c.models_id == db_zones.c.models_id)))
             .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
             .where(db_models.c.name == self.model))
 
