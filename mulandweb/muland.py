@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+from collections import namedtuple
 from pathlib import Path
 import os, tempfile, subprocess
 import csv
@@ -18,6 +19,8 @@ class DependencyError(MulandException):
 
 class MulandRunError(MulandException):
     pass
+
+MulandData = namedtuple('MulandData', ['header', 'records'])
 
 class Muland:
     '''Access Muland Application'''
