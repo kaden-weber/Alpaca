@@ -80,6 +80,12 @@ class MulandDB:
             records=self._get_rent_functions()
         )
 
+        # subsidies
+        data['subsidies'] = MulandData(
+            header=['H_IDX', 'V_IDX', 'I_IDX', 'SUBSIDIES'],
+            records=self._get_subsidies(zones, zone_map)
+        )
+
         return data
 
     def _get_headers(self):
@@ -380,24 +386,27 @@ class MulandDB:
     # subsidies
     #"H_IDX";"V_IDX";"I_IDX";"SUBSIDIES"
     #1.00;1.00;1.00;0.0000000000
-    def _get_subsidies(self):
+    def _get_subsidies(self, zones, zone_map):
         '''Get subsidies records'''
         db_subsidies = db.subsidies
         db_models = db.models
-        db_zones = db.zones
 
         s = (select([db_subsidies.c.agents_id,
                      db_subsidies.c.types_id,
                      db_subsidies.c.zones_id,
                      db_subsidies.c.subsidies])
             .select_from(db_subsidies
-                .join(db_models, db_subsidies.c.models_id == db_models.c.id)
-                .join(db_zones, and_(db_subsidies.c.zones_id == db_zones.c.id,
-                                     db_subsidies.c.models_id == db_zones.c.models_id)))
-            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
-            .where(db_models.c.name == self.model))
+                .join(db_models, db_subsidies.c.models_id == db_models.c.id))
+            .where(and_(db_models.c.name == self.model,
+                        db_subsidies.c.zones_id.in_(zones))))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        info = {row[2]: list(row) for row in db.engine.execute(s)}
+        records = []
+        for point_id, zone_id in zone_map:
+            data = info[zone_id].copy()
+            data[2] = point_id
+            records.append(data)
+
         return records
 
     # supply
