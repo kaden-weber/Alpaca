@@ -66,7 +66,7 @@ agents = Table('agents', meta,
 zones = Table('zones', meta,
     Column('id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('area', Geometry('POLYGON', srid=900913, spatial_index=True)),
+    Column('area', Geometry(srid=900913, spatial_index=True)),
     Column('data', ARRAY(Float, zero_indexes=True)),
 )
 
@@ -152,4 +152,4 @@ rent_functions = Table('rent_functions', meta,
     Column('exppar_y', Float),
 )
 
-#meta.create_all(engine)
+meta.create_all(engine)
