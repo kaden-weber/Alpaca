@@ -44,8 +44,17 @@ class MulandDB:
         # bids_adjustments
         data['bids_adjustments'] = MulandData(
             header=['H_IDX', 'V_IDX', 'I_IDX', 'BIDADJ'],
-            records=self._get_bids_adjustments(zones)
+            records=self._get_bids_adjustments_records(zones)
         )
+
+        # bids_functions
+        data['bids_functions'] = MulandData(
+            header=['IDMARKET', 'IDAGGRA', 'IDATTRIB', 'LINEAPAR', 'CAGENT_X',
+                    'CREST_X', 'CACC_X', 'CZONES_X', 'EXPPAR_X', 'CAGENT_Y',
+                    'CREST_Y', 'CACC_Y', 'CZONES_Y', 'EXPPAR_Y'],
+            records=self._get_bids_functions_records()
+        )
+
         return data
 
     def _get_headers(self):
@@ -171,7 +180,7 @@ class MulandDB:
     # bids_adjustments
     #"H_IDX";"V_IDX";"I_IDX";"BIDADJ"
     #1.00;1.00;1.00;0.0000000000
-    def _get_bids_adjustments(self, zones):
+    def _get_bids_adjustments_records(self, zones):
         '''Get bids_adjustments records'''
         db_badj = db.bids_adjustments
         db_models = db.models
@@ -192,7 +201,8 @@ class MulandDB:
     # bids_functions
     #"IDMARKET";"IDAGGRA";"IDATTRIB";"LINEAPAR";"CAGENT_X";"CREST_X";"CACC_X";"CZONES_X";"EXPPAR_X";"CAGENT_Y";"CREST_Y";"CACC_Y";"CZONES_Y";"EXPPAR_Y"
     #1.0000;1.0000;1.0000;15.7300;0.0000;5.0000;0.0000;0.0000;1.0000;0.0000;0.0000;0.0000;0.0000;0.0000
-    def _get_bids_functions(self):
+    def _get_bids_functions_records(self):
+        '''Get bids_functions records'''
         db_bfunc = db.bids_functions
         db_models = db.models
 
@@ -215,6 +225,7 @@ class MulandDB:
             .where(db_models.c.name == self.model))
 
         records = [list(row) for row in db.engine.execute(s)]
+        return records
 
     # demand
     #"H_IDX";"DEMAND"
