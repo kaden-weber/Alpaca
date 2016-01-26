@@ -5,7 +5,6 @@ from math import pi, acos, sin, cos, sqrt, log, atan, exp
 from sqlalchemy import select, func, and_, text
 
 from . import db
-from .muland import MulandData
 
 class MulandDB:
     '''Provides data retrival from Muland Database'''
@@ -25,7 +24,8 @@ class MulandDB:
         headers = self._get_headers()
 
         # zones
-        zones, zones_records = self._get_zones()
+        zone_map, zones_records = self._get_zones()
+        zones = set((x[1] for x in zone_map))
         data['zones'] = MulandData(header=['I_IDX'] + headers['zones_header'],
                                    records=zones_records)
 
@@ -60,6 +60,13 @@ class MulandDB:
             header=['H_IDX', 'DEMAND'],
             records=self._get_demand_records()
         )
+
+        # demand_exogenous_cutoff
+        data['demand_exogenous_cutoff'] = MulandData(
+            header=['H_IDX', 'V_IDX', 'I_IDX', 'DCUTOFF'],
+            records=self._get_demand_exogenous_cutoff_records(zones, zone_map)
+        )
+
         return data
 
     def _get_headers(self):
@@ -81,9 +88,9 @@ class MulandDB:
     def _get_zones(self):
         '''Get zones records
 
-        Returns tuple (zones, records), where zones is a set with the id of the
-        relevant zones for these points and records are the records for the
-        zones file.
+        Returns tuple (zone_map, records). The zone_map field carries a
+        list of tuples (point_id, zone_id). The records field carries a list
+        of records for the zones file.
         '''
         db_zones = db.zones
         db_models = db.models
@@ -120,17 +127,17 @@ class MulandDB:
             .where(db_models.c.name == self.model)
             .order_by(text('points.idx')))
 
-        zones = set()
+        zone_map = []
         records = []
         zone_id = 1
         for row in db.engine.execute(s):
             data = [zone_id]
             data.extend(row[2])
             records.append(data)
-            zones.add(row[1])
+            zone_map.append([row[0], row[1]])
             zone_id += 1
 
-        return zones, records
+        return zone_map, records
 
     # agents
     #"IDAGENT";"IDMARKET";"IDAGGRA";"UPPERBB";"HHINC";"RHO";"FNIP";"ONES"
@@ -252,7 +259,7 @@ class MulandDB:
     # demand_exogenous_cutoff
     #"H_IDX";"V_IDX";"I_IDX";"DCUTOFF"
     #1.00;1.00;1.00;1.00
-    def _get_demand_exogenous_cutoff(self):
+    def _get_demand_exogenous_cutoff_records(self, zones, zone_map):
         '''Get demand_exogenous_cutoff records'''
         db_decutoff = db.demand_exogenous_cutoff
         db_models = db.models
@@ -263,13 +270,17 @@ class MulandDB:
                      db_decutoff.c.zones_id,
                      db_decutoff.c.dcutoff])
             .select_from(db_decutoff
-                .join(db_models, db_decutoff.c.models_id == db_models.c.id)
-                .join(db_zones, and_(db_decutoff.c.zones_id == db_zones.c.id,
-                                     db_decutoff.c.models_id == db_zones.c.models_id)))
-            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
-            .where(db_models.c.name == self.model))
+                .join(db_models, db_decutoff.c.models_id == db_models.c.id))
+            .where(and_(db_models.c.name == self.model,
+                        db_decutoff.c.zones_id.in_(zones))))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        info = {row[2]: list(row) for row in db.engine.execute(s)}
+        records = []
+        for point_id, zone_id in zone_map:
+            data = info[zone_id].copy()
+            data[2] = point_id
+            records.append(data)
+
         return records
 
     # real_estates_zones
