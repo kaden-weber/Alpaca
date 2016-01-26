@@ -55,6 +55,11 @@ class MulandDB:
             records=self._get_bids_functions_records()
         )
 
+        # demand
+        data['demand'] = MulandData(
+            header=['H_IDX', 'DEMAND'],
+            records=self._get_demand_records()
+        )
         return data
 
     def _get_headers(self):
@@ -230,7 +235,7 @@ class MulandDB:
     # demand
     #"H_IDX";"DEMAND"
     #1.00;10562.7974402
-    def _get_demand(self):
+    def _get_demand_records(self):
         '''Get demand records'''
         db_demand = db.demand
         db_models = db.models
