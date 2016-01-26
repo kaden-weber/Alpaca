@@ -2,58 +2,94 @@
 
 from math import pi, acos, sin, cos, sqrt, log, atan, exp
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, text
 
 from . import db
 from .muland import MulandData
 
-def wgs84_to_google(lat, lng):
-    '''Converts a point from WGS84 to Google coordinates'''
-    earth_radius = 6378137 # [m]
-    max_lat = 85.0511287798
-
-    lat = max(min(max_lat, lat), -max_lat)
-    lat_sin = sin(lat / 180 * pi)
-
-    x = lng / 180 * pi * earth_radius
-    y = log((1 + lat_sin) / (1 - lat_sin)) / 2 * earth_radius
-
-    return x, y
-
 class MulandDB:
     '''Provides data retrival from Muland Database'''
-    def __init__(self, model, lat, lng):
+    def __init__(self, model, points):
         '''Initialize class'''
         assert isinstance(model, str)
-        assert isinstance(lat, (int, float))
-        assert isinstance(lng, (int, float))
-        x, y = wgs84_to_google(lat, lng)
+        points = list(points)
+        for lat, lng in points:
+            assert isinstance(lat, (int, float))
+            assert isinstance(lng, (int, float))
         self.model = model
-        self.x = x
-        self.y = y
-        self.point_wkt = 'POINT(%d %d)' % (x, y)
+        self.points = points
+
+    def get(self):
+        '''Get data for Muland'''
+        data = {}
+        headers = self._get_headers()
+
+        # zones
+        data['zones'] = MulandData(header=['I_IDX'] + headers['zones_header'],
+                                   records=self._get_zones_records())
+
+        return data
+
+    def _get_headers(self):
+        '''Get CSV header records'''
+        db_models = db.models
+
+        s = (select([db_models.c.zones_header,
+                    db_models.c.agents_header,
+                    db_models.c.agents_zones_header,
+                    db_models.c.real_estates_zones_header])
+            .where(db_models.c.name == self.model)
+            .limit(1))
+
+        return dict(db.engine.execute(s).fetchone())
 
     # zones
     #"I_IDX";"INDAREA";"COMAREA";"SERVAREA";"TOTAREA";"TOTBUILT";"INCOMEHH";"DIST_ACC"
     #1.00;2.7441056;0.4679935;3.2301371;8968.0590000;10.9089400;0.00;2.8959340
     def _get_zones_records(self):
         '''Get zones records'''
-        zones_table = db.zones
-        models_table = db.models
+        db_zones = db.zones
+        db_models = db.models
 
-        s = (select([zones_table.c.id, zones_table.c.data])
-             .select_from(zones_table.join(
-                models_table,
-                zones_table.c.models_id == models_table.c.id))
-             .where(func.ST_Contains(zones_table.c.area, self.point_wkt))
-             .where(models_table.c.name == self.model)
-        )
+        # Generated query like:
+        #SELECT
+        #    points.idx as point_id,
+        #    zones.id as zones_id,
+        #    zones.data
+        #FROM
+        #    models
+        #    JOIN zones ON zones.models_id = models.id
+        #    JOIN (VALUES
+        #        (0, ST_Transform(ST_SetSRID(ST_Point(-70.5602732772102, 41.846681982857724), 4326), 900913)),
+        #        (1, ST_Transform(ST_SetSRID(ST_Point(-70.548986695639755, 41.818260285896393), 4326), 900913)),
+        #        (2, ST_Transform(ST_SetSRID(ST_Point(-70.5602832772102, 41.846691982857724), 4326), 900913))
+        #    ) AS points (idx, geom) ON ST_Contains(zones.area, points.geom)
+        #WHERE
+        #    models.name = 'boston'
+        #ORDER BY
+        #    points.idx
+
+        values = ', '.join(
+            ['(%s, ST_Transform(ST_SetSRID(ST_Point(%s, %s), 4326), 900913))' % (idx, lng, lat)
+             for idx, (lat, lng) in zip(range(len(self.points)), self.points)])
+
+        s = (select([text('points.idx AS point_id '),
+                     db_zones.c.id.label('zones_id'),
+                     db_zones.c.data])
+            .select_from(db_models
+                .join(db_zones, db_models.c.id == db_zones.c.models_id)
+                .join(text('(VALUES %s) AS points (idx, geom) ' % values),
+                      func.ST_Contains(db_zones.c.area, text('points.geom'))))
+            .where(db_models.c.name == self.model)
+            .order_by(text('points.idx')))
 
         records = []
+        zone_id = 1
         for row in db.engine.execute(s):
-            data = [row['id']]
-            data.extend(row['data'])
+            data = [zone_id]
+            data.extend(row[2])
             records.append(data)
+            zone_id += 1
 
         return records
 
@@ -211,7 +247,7 @@ class MulandDB:
         db_models = db.models
 
         s = (select([db_rezones.c.types_id,
-                     db_rezones.c.zones_id
+                     db_rezones.c.zones_id,
                      db_rezones.c.markets_id,
                      db_rezones.c.data])
             .select_from(db_rezones
