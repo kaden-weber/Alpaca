@@ -73,6 +73,13 @@ class MulandDB:
             records=self._get_real_estates_zones(zones, zone_map)
         )
 
+        # rent_funtions
+        data['rent_functions'] = MulandData(
+            header=['IDMARKET', 'IDATTRIB', 'SCALEPAR', 'LINEAPAR', 'CREST_X',
+                    'CZONES_X', 'EXPPAR_X', 'CREST_Y', 'CZONES_Y', 'EXPPAR_Y'],
+            records=self._get_rent_functions()
+        )
+
         return data
 
     def _get_headers(self):
