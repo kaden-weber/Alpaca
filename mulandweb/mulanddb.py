@@ -44,7 +44,7 @@ class MulandDB:
         # bids_adjustments
         data['bids_adjustments'] = MulandData(
             header=['H_IDX', 'V_IDX', 'I_IDX', 'BIDADJ'],
-            records=self._get_bids_adjustments_records(zones)
+            records=self._get_bids_adjustments_records(zones, zone_map)
         )
 
         # bids_functions
@@ -192,7 +192,7 @@ class MulandDB:
     # bids_adjustments
     #"H_IDX";"V_IDX";"I_IDX";"BIDADJ"
     #1.00;1.00;1.00;0.0000000000
-    def _get_bids_adjustments_records(self, zones):
+    def _get_bids_adjustments_records(self, zones, zone_map):
         '''Get bids_adjustments records'''
         db_badj = db.bids_adjustments
         db_models = db.models
@@ -206,7 +206,12 @@ class MulandDB:
             .where(and_(db_models.c.name == self.model,
                         db_badj.c.zones_id.in_(zones))))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        info = {row[2]: list(row) for row in db.engine.execute(s)}
+        records = []
+        for point_id, zone_id in zone_map:
+            data = info[zone_id].copy()
+            data[2] = point_id
+            records.append(data)
 
         return records
 
