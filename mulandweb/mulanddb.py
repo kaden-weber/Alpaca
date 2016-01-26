@@ -25,9 +25,15 @@ class MulandDB:
         headers = self._get_headers()
 
         # zones
+        zones, zones_records = self._get_zones()
         data['zones'] = MulandData(header=['I_IDX'] + headers['zones_header'],
-                                   records=self._get_zones_records())
+                                   records=zones_records)
 
+        # agents
+        data['agents'] = MulandData(
+            header=['IDAGENT', 'IDMARKET', 'IDAGGRA', 'UPPERBB'] + headers['agents_header'],
+            records=self._get_agents_records()
+        )
         return data
 
     def _get_headers(self):
@@ -46,8 +52,13 @@ class MulandDB:
     # zones
     #"I_IDX";"INDAREA";"COMAREA";"SERVAREA";"TOTAREA";"TOTBUILT";"INCOMEHH";"DIST_ACC"
     #1.00;2.7441056;0.4679935;3.2301371;8968.0590000;10.9089400;0.00;2.8959340
-    def _get_zones_records(self):
-        '''Get zones records'''
+    def _get_zones(self):
+        '''Get zones records
+
+        Returns tuple (zones, records), where zones is a set with the id of the
+        relevant zones for these points and records are the records for the
+        zones file.
+        '''
         db_zones = db.zones
         db_models = db.models
 
@@ -83,15 +94,17 @@ class MulandDB:
             .where(db_models.c.name == self.model)
             .order_by(text('points.idx')))
 
+        zones = set()
         records = []
         zone_id = 1
         for row in db.engine.execute(s):
             data = [zone_id]
             data.extend(row[2])
             records.append(data)
+            zones.add(row[1])
             zone_id += 1
 
-        return records
+        return zones, records
 
     # agents
     #"IDAGENT";"IDMARKET";"IDAGGRA";"UPPERBB";"HHINC";"RHO";"FNIP";"ONES"
@@ -111,8 +124,8 @@ class MulandDB:
 
         records = []
         for row in db.engine.execute(s):
-            data = row[0:4]
-            data.extend(row[5])
+            data = list(row[0:4])
+            data.extend(row[4])
             records.append(data)
 
         return records
