@@ -6,13 +6,15 @@ from sqlalchemy import select, func, and_, text
 
 from . import db
 
+__all__ = ['MulandDB']
+
 class MulandDB:
     '''Provides data retrival from Muland Database'''
     def __init__(self, model, points):
         '''Initialize class'''
         assert isinstance(model, str)
         points = list(points)
-        for lat, lng in points:
+        for lng, lat in points:
             assert isinstance(lat, (int, float))
             assert isinstance(lng, (int, float))
         self.model = model
@@ -140,7 +142,7 @@ class MulandDB:
 
         values = ', '.join(
             ['(%s, ST_Transform(ST_SetSRID(ST_Point(%s, %s), 4326), 900913))' % (idx, lng, lat)
-             for idx, (lat, lng) in zip(range(1, len(self.points) + 1), self.points)])
+             for idx, (lng, lat) in zip(range(1, len(self.points) + 1), self.points)])
 
         s = (select([text('points.idx AS point_id '),
                      db_zones.c.id.label('zones_id'),
