@@ -34,6 +34,18 @@ class MulandDB:
             header=['IDAGENT', 'IDMARKET', 'IDAGGRA', 'UPPERBB'] + headers['agents_header'],
             records=self._get_agents_records()
         )
+
+        # agents_zones
+        data['agents_zones'] = MulandData(
+            header=['H_IDX', 'I_IDX', 'ACC', 'P_LN_ATT'] + headers['agents_zones_header'],
+            records=self._get_agents_zones_records(zones)
+        )
+
+        # bids_adjustments
+        data['bids_adjustments'] = MulandData(
+            header=['H_IDX', 'V_IDX', 'I_IDX', 'BIDADJ'],
+            records=self._get_bids_adjustments(zones)
+        )
         return data
 
     def _get_headers(self):
@@ -133,10 +145,9 @@ class MulandDB:
     # agents_zones
     #"H_IDX";"I_IDX";"ACC";"P_LN_ATT"
     #1.00;1.00;0.7308194;0.0000000
-    def _get_agents_zones_records(self):
+    def _get_agents_zones_records(self, zones):
         '''Get agents records'''
         db_models = db.models
-        db_zones = db.zones
         db_azones = db.agents_zones
 
         s = (select([db_azones.c.agents_id,
@@ -145,16 +156,14 @@ class MulandDB:
                      db_azones.c.att,
                      db_azones.c.data])
             .select_from(db_azones
-                .join(db_zones, and_(db_azones.c.zones_id == db_zones.c.id,
-                                     db_azones.c.models_id == db_zones.c.models_id))
                 .join(db_models, db_azones.c.models_id == db_models.c.id))
-            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
-            .where(db_models.c.name == self.model))
+            .where(and_(db_models.c.name == self.model,
+                        db_azones.c.zones_id.in_(zones))))
 
         records = []
         for row in db.engine.execute(s):
-            data = row[0:4]
-            data.extend(row[5])
+            data = list(row[0:4])
+            data.extend(row[4])
             records.append(data)
 
         return records
@@ -162,10 +171,9 @@ class MulandDB:
     # bids_adjustments
     #"H_IDX";"V_IDX";"I_IDX";"BIDADJ"
     #1.00;1.00;1.00;0.0000000000
-    def _get_bids_adjustments(self):
+    def _get_bids_adjustments(self, zones):
         '''Get bids_adjustments records'''
         db_badj = db.bids_adjustments
-        db_zones = db.zones
         db_models = db.models
 
         s = (select([db_badj.c.agents_id,
@@ -173,11 +181,9 @@ class MulandDB:
                      db_badj.c.zones_id,
                      db_badj.c.bidadj])
             .select_from(db_badj
-                .join(db_zones, and_(db_badj.c.zones_id == db_zones.c.id,
-                                     db_badj.c.models_id == db_zones.c.models_id))
                 .join(db_models, db_badj.c.models_id == db_models.c.id))
-            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
-            .where(db_models.c.name == self.model))
+            .where(and_(db_models.c.name == self.model,
+                        db_badj.c.zones_id.in_(zones))))
 
         records = [list(row) for row in db.engine.execute(s)]
 
