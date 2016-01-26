@@ -38,7 +38,7 @@ class MulandDB:
         # agents_zones
         data['agents_zones'] = MulandData(
             header=['H_IDX', 'I_IDX', 'ACC', 'P_LN_ATT'] + headers['agents_zones_header'],
-            records=self._get_agents_zones_records(zones)
+            records=self._get_agents_zones_records(zones, zone_map)
         )
 
         # bids_adjustments
@@ -115,7 +115,7 @@ class MulandDB:
 
         values = ', '.join(
             ['(%s, ST_Transform(ST_SetSRID(ST_Point(%s, %s), 4326), 900913))' % (idx, lng, lat)
-             for idx, (lat, lng) in zip(range(len(self.points)), self.points)])
+             for idx, (lat, lng) in zip(range(1, len(self.points) + 1), self.points)])
 
         s = (select([text('points.idx AS point_id '),
                      db_zones.c.id.label('zones_id'),
@@ -129,13 +129,11 @@ class MulandDB:
 
         zone_map = []
         records = []
-        zone_id = 1
         for row in db.engine.execute(s):
-            data = [zone_id]
+            data = [row[0]]
             data.extend(row[2])
             records.append(data)
             zone_map.append([row[0], row[1]])
-            zone_id += 1
 
         return zone_map, records
 
@@ -166,7 +164,7 @@ class MulandDB:
     # agents_zones
     #"H_IDX";"I_IDX";"ACC";"P_LN_ATT"
     #1.00;1.00;0.7308194;0.0000000
-    def _get_agents_zones_records(self, zones):
+    def _get_agents_zones_records(self, zones, zone_map):
         '''Get agents records'''
         db_models = db.models
         db_azones = db.agents_zones
@@ -181,10 +179,13 @@ class MulandDB:
             .where(and_(db_models.c.name == self.model,
                         db_azones.c.zones_id.in_(zones))))
 
+        info = {row[1]: list(row) for row in db.engine.execute(s)}
         records = []
-        for row in db.engine.execute(s):
-            data = list(row[0:4])
-            data.extend(row[4])
+        for point_id, zone_id in zone_map:
+            zone_info = info[zone_id]
+            data = list(zone_info[0:4])
+            data.extend(zone_info[4])
+            data[1] = point_id
             records.append(data)
 
         return records
