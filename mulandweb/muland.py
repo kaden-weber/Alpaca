@@ -11,9 +11,6 @@ from . import config
 class MulandException(Exception):
     pass
 
-class ModelNotFound(MulandException):
-    pass
-
 class DependencyError(MulandException):
     pass
 
