@@ -5,7 +5,8 @@ import bottle
 import re
 import json
 
-from .muland import Muland, ModelNotFound, MulandRunError
+from .muland import Muland, MulandRunError
+from .mulanddb import Parcel, Unit, ModelNotFound
 from . import app
 
 __all__ = ['post_handler']
@@ -21,28 +22,57 @@ def post_handler(self, model):
 
     # Prepare data
     data_in = bottle.request.json
-    if data_in is not None:
-        if not isinstance(data_in, dict):
-            raise bottle.HTTPError(400, 'JSON root isn\'t a dict')
-        mudata = {}
-        for key, value in data_in.items():
-            if key not in Muland.input_files:
-                continue
-            if not isinstance(value, list):
-                raise bottle.HTTPError(400, 'Input "%s" isn\'t a list' % key)
-            if len(value) > 0:
-                rowlength = len(value[0])
-                if any((len(row) != rowlength for row in value)):
-                    raise bottle.HTTPError(400, 'Variable length size for input "%s"' % key)
-            mudata[key] = value
-    else:
-        mudata = {}
+    if data_in is None:
+        raise bottle.HTTPError(400, 'No input data.')
 
-    # Run Mu-Land
+    if not isinstance(data_in, dict) or 'parcels' not in data_in:
+        raise bottle.HTTPError(400, 'Invalid input data.')
+
+    parcels = data_in['parcels']
+    if not isinstance(parcels, list):
+        raise bottle.HTTPError(400, "'parcels' isn't an array")
+
+    dbparcels = []
+    for parcel in parcels:
+        if 'lnglat' not in parcel:
+            raise bottle.HTTPError(400, "'lnglat' not in 'parcels' items")
+
+        lnglat = parcel['lnglat']
+        if not isinstance(lnglat, list) or len(lnglat) != 2:
+            raise bottle.HTTPError(400, "'lnglat' isn't array with 2 elements")
+
+        if not all((isinstance(x, (int, float)) for x in lnglat)):
+            raise bottle.HTTPError(400, "lng or lat not a number")
+
+        if 'units' not in parcel:
+            raise bottle.HTTPError(400, "'units' not in 'parcels' items")
+        units = parcel['units']
+        if not isinstance(units, list):
+            raise bottle.HTTPError(400, "'units' isn't an array")
+
+        for unit in units:
+            if 'type' not in unit:
+                raise bottle.HTTPError(400, "'type' not in unit")
+            if not isinstance(unit['type'], (int, float)):
+                raise bottle.HTTPError(400, "'type' isn't a number")
+            if 'amount' not in unit:
+                raise bottle.HTTPError(400, "'amount' not in unit")
+            if not isinstance(unit['amount'], (int, float)):
+                raise bottle.HTTPError(400, "'amount' isn't a number")
+
+        dbparcels.append(Parcel(
+                   lnglat=tuple(lnglat),
+                   unit=[Unit(type=unit['type'], amount=unit['amount'])
+                         for unit in units]))
+
+    # Get data from MulandDB
     try:
-        mu = Muland(model, **mudata)
+        mudata = MulandDB(model, parcels)
     except ModelNotFound:
         raise bottle.HTTPError(404)
+
+    # Run Mu-Land
+    mu = Muland(**mudata)
     try:
         mu.run()
     except MulandRunError as e:
