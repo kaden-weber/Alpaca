@@ -12,11 +12,11 @@ meta = MetaData()
 
 models = Table('models', meta,
     Column('id', Integer, Sequence('models_id_seq'), primary_key=True),
-    Column('name', String),
-    Column('zones_header', ARRAY(String, zero_indexes=True)),
-    Column('agents_header', ARRAY(String, zero_indexes=True)),
-    Column('agents_zones_header', ARRAY(String, zero_indexes=True)),
-    Column('real_estates_zones_header', ARRAY(String, zero_indexes=True)),
+    Column('name', String, index=True, nullable=False, unique=True),
+    Column('zones_header', ARRAY(String, zero_indexes=True), nullable=False),
+    Column('agents_header', ARRAY(String, zero_indexes=True), nullable=False),
+    Column('agents_zones_header', ARRAY(String, zero_indexes=True), nullable=False),
+    Column('real_estates_zones_header', ARRAY(String, zero_indexes=True), nullable=False),
 )
 
 real_estate_types = Table('real_estate_types', meta,
