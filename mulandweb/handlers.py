@@ -6,7 +6,7 @@ import re
 import json
 
 from .muland import Muland, MulandRunError
-from .mulanddb import MulandDB, Parcel, Unit, ModelNotFound
+from .mulanddb import MulandDB, ModelNotFound
 from . import app
 
 __all__ = ['post_handler']
@@ -28,25 +28,25 @@ def post_handler(model):
     if not isinstance(data_in, dict) or 'parcels' not in data_in:
         raise bottle.HTTPError(400, 'Invalid input data.')
 
-    parcels = data_in['parcels']
-    if not isinstance(parcels, list):
-        raise bottle.HTTPError(400, "'parcels' isn't an array")
+    locations = data_in['loc']
+    if not isinstance(loc, list):
+        raise bottle.HTTPError(400, "'loc' isn't an array")
 
-    dbparcels = []
-    for parcel in parcels:
-        if 'lnglat' not in parcel:
-            raise bottle.HTTPError(400, "'lnglat' not in 'parcels' items")
+    dbloc = []
+    for loc in locations:
+        if 'lnglat' not in loc:
+            raise bottle.HTTPError(400, "'lnglat' not in 'loc' items")
 
-        lnglat = parcel['lnglat']
+        lnglat = loc['lnglat']
         if not isinstance(lnglat, list) or len(lnglat) != 2:
             raise bottle.HTTPError(400, "'lnglat' isn't array with 2 elements")
 
         if not all((isinstance(x, (int, float)) for x in lnglat)):
             raise bottle.HTTPError(400, "lng or lat not a number")
 
-        if 'units' not in parcel:
-            raise bottle.HTTPError(400, "'units' not in 'parcels' items")
-        units = parcel['units']
+        if 'units' not in loc:
+            raise bottle.HTTPError(400, "'units' not in 'loc' items")
+        units = loc['units']
         if not isinstance(units, list):
             raise bottle.HTTPError(400, "'units' isn't an array")
 
@@ -60,14 +60,12 @@ def post_handler(model):
             if not isinstance(unit['amount'], (int, float)):
                 raise bottle.HTTPError(400, "'amount' isn't a number")
 
-        dbparcels.append(Parcel(
-                   lnglat=tuple(lnglat),
-                   units=[Unit(type=unit['type'], amount=unit['amount'])
-                          for unit in units]))
+        dbloc.append({'lnglat': lnglat,
+                      'units': {'type': unit['type']}})
 
     # Get data from MulandDB
     try:
-        mudata = MulandDB(model, dbparcels).get()
+        mudata = MulandDB(model, dbloc).get()
     except ModelNotFound:
         raise bottle.HTTPError(404)
 
