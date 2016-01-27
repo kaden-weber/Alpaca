@@ -6,7 +6,7 @@ import re
 import json
 
 from .muland import Muland, MulandRunError
-from .mulanddb import Parcel, Unit, ModelNotFound
+from .mulanddb import MulandDB, Parcel, Unit, ModelNotFound
 from . import app
 
 __all__ = ['post_handler']
@@ -14,7 +14,7 @@ __all__ = ['post_handler']
 _model_re = re.compile('[a-z]')
 
 @app.post('/<model>')
-def post_handler(self, model):
+def post_handler(model):
     '''Handles POST requests to server'''
     # Validate model name
     if _model_re.match(model) is None:
@@ -62,12 +62,12 @@ def post_handler(self, model):
 
         dbparcels.append(Parcel(
                    lnglat=tuple(lnglat),
-                   unit=[Unit(type=unit['type'], amount=unit['amount'])
-                         for unit in units]))
+                   units=[Unit(type=unit['type'], amount=unit['amount'])
+                          for unit in units]))
 
     # Get data from MulandDB
     try:
-        mudata = MulandDB(model, parcels)
+        mudata = MulandDB(model, dbparcels).get()
     except ModelNotFound:
         raise bottle.HTTPError(404)
 
