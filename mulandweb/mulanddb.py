@@ -1,23 +1,40 @@
 # coding: utf-8
 
 from math import pi, acos, sin, cos, sqrt, log, atan, exp
+from collections import namedtuple
 
 from sqlalchemy import select, func, and_, text
 
+from .muland import MulandData
 from . import db
 
-__all__ = ['MulandDB']
+__all__ = ['MulandDB', 'Parcel', 'Unit']
+
+Parcel = namedtuple('Parcel', ['lnglat', 'units'])
+Unit = namedtuple('Unit', ['type', 'amount'])
+
+class MulandDBException(Exception):
+    pass
+class ModelNotFound(MulandDBException):
+    pass
 
 class MulandDB:
     '''Provides data retrival from Muland Database'''
-    def __init__(self, model, points):
+    def __init__(self, model, parcels):
         '''Initialize class'''
         assert isinstance(model, str)
-        points = list(points)
+        points = [parcel.lnglat for parcel in parcels]
         for lng, lat in points:
             assert isinstance(lat, (int, float))
             assert isinstance(lng, (int, float))
+
+        s = select([db.models.c.id]).where(db.models.c.name == model)
+        result = db.engine.execute(s).fetchone()
+        if result is None:
+            raise ModelNotFound
+
         self.model = model
+        self.model_id = result[0]
         self.points = points
 
     def get(self):
@@ -73,6 +90,12 @@ class MulandDB:
         data['real_estates_zones'] = MulandData(
             header=['V_IDX', 'I_IDX', 'M_IDX'] + headers['real_estates_zones_header'],
             records=self._get_real_estates_zones(zones, zone_map)
+        )
+
+        # rent_adjustments "V_IDX";"I_IDX";"RENTADJ"
+        data['rent_adjustments'] = MulandData(
+            header=['V_IDX', 'I_IDX', 'RENTADJ'],
+            records=self._get_rent_adjustments(zones, zone_map)
         )
 
         # rent_funtions
@@ -347,7 +370,7 @@ class MulandDB:
     # rent_adjustments
     #"V_IDX";"I_IDX";"RENTADJ"
     #1.00;1.00;0.00
-    def _get_rent_adjustments(self):
+    def _get_rent_adjustments(self, zones, zone_map):
         '''Get rent_adjustments records'''
         db_rentadj = db.rent_adjustments
         db_models = db.models
@@ -357,11 +380,16 @@ class MulandDB:
                      db_rentadj.c.zones_id,
                      db_rentadj.c.adjustment])
             .select_from(db_rentadj
-                .join(db_models, db_rentadj.c.models_id == db_models.c.id)
-                .join(db_zones, and_(db_rentadj.c.zones_id == db_zones.c.id,
-                                     db_rentadj.c.models_id == db_zones.c.models_id)))
-            .where(func.ST_Contains(db_zones.c.area, self.point_wkt))
-            .where(db_models.c.name == self.model))
+                .join(db_models, db_rentadj.c.models_id == db_models.c.id))
+            .where(and_(db_models.c.name == self.model,
+                        db_rentadj.c.zones_id.in_(zones))))
+
+        info = {row[1]: list(row) for row in db.engine.execute(s)}
+        records = []
+        for point_id, zone_id in zone_map:
+            data = info[zone_id].copy()
+            data[1] = point_id
+            records.append(data)
 
         records = [list(row) for row in db.engine.execute(s)]
         return records
