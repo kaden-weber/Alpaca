@@ -8,10 +8,7 @@ from sqlalchemy import select, func, and_, text
 from .muland import MulandData
 from . import db
 
-__all__ = ['MulandDB', 'Parcel', 'Unit']
-
-Parcel = namedtuple('Parcel', ['lnglat', 'units'])
-Unit = namedtuple('Unit', ['type', 'amount'])
+__all__ = ['MulandDB']
 
 class MulandDBException(Exception):
     pass
@@ -20,22 +17,31 @@ class ModelNotFound(MulandDBException):
 
 class MulandDB:
     '''Provides data retrival from Muland Database'''
-    def __init__(self, model, parcels):
+    def __init__(self, model: str, locations: list):
         '''Initialize class'''
         assert isinstance(model, str)
-        points = [parcel.lnglat for parcel in parcels]
-        for lng, lat in points:
-            assert isinstance(lat, (int, float))
-            assert isinstance(lng, (int, float))
 
         s = select([db.models.c.id]).where(db.models.c.name == model)
         result = db.engine.execute(s).fetchone()
         if result is None:
             raise ModelNotFound
 
-        self.model = model
-        self.model_id = result[0]
+        points = []
+        i = 0
+        for loc in locations:
+            assert isinstance(loc['lnglat'][0], (int, float))
+            assert isinstance(loc['lnglat'][1], (int, float))
+            for unit in loc['units']:
+                point = {'id': i,
+                         'lng': loc['lnglat'][0],
+                         'lat': loc['lnglat'][1],
+                         'types_id': unit['type']}
+                points.append(point)
+                i += 1
+
+        self.models_id = result[0]
         self.points = points
+        self.loc = locations
 
     def get(self):
         '''Get data for Muland'''
@@ -44,9 +50,10 @@ class MulandDB:
 
         # zones
         zone_map, zones_records = self._get_zones()
-        zones = set((x[1] for x in zone_map))
         data['zones'] = MulandData(header=['I_IDX'] + headers['zones_header'],
                                    records=zones_records)
+        for point_idx, zones_id in zone_map:
+            self.points[point_idx]['zones_id'] = zones_id
 
         # agents
         data['agents'] = MulandData(
@@ -57,13 +64,13 @@ class MulandDB:
         # agents_zones
         data['agents_zones'] = MulandData(
             header=['H_IDX', 'I_IDX', 'ACC', 'P_LN_ATT'] + headers['agents_zones_header'],
-            records=self._get_agents_zones_records(zones, zone_map)
+            records=self._get_agents_zones_records()
         )
 
         # bids_adjustments
         data['bids_adjustments'] = MulandData(
             header=['H_IDX', 'V_IDX', 'I_IDX', 'BIDADJ'],
-            records=self._get_bids_adjustments_records(zones, zone_map)
+            records=self._get_bids_adjustments_records()
         )
 
         # bids_functions
@@ -83,19 +90,19 @@ class MulandDB:
         # demand_exogenous_cutoff
         data['demand_exogenous_cutoff'] = MulandData(
             header=['H_IDX', 'V_IDX', 'I_IDX', 'DCUTOFF'],
-            records=self._get_demand_exogenous_cutoff_records(zones, zone_map)
+            records=self._get_demand_exogenous_cutoff_records()
         )
 
         # real_estates_zones
         data['real_estates_zones'] = MulandData(
             header=['V_IDX', 'I_IDX', 'M_IDX'] + headers['real_estates_zones_header'],
-            records=self._get_real_estates_zones(zones, zone_map)
+            records=self._get_real_estates_zones()
         )
 
-        # rent_adjustments "V_IDX";"I_IDX";"RENTADJ"
+        # rent_adjustments
         data['rent_adjustments'] = MulandData(
             header=['V_IDX', 'I_IDX', 'RENTADJ'],
-            records=self._get_rent_adjustments(zones, zone_map)
+            records=self._get_rent_adjustments()
         )
 
         # rent_funtions
@@ -108,13 +115,13 @@ class MulandDB:
         # subsidies
         data['subsidies'] = MulandData(
             header=['H_IDX', 'V_IDX', 'I_IDX', 'SUBSIDIES'],
-            records=self._get_subsidies(zones, zone_map)
+            records=self._get_subsidies()
         )
 
         # supply
         data['supply'] = MulandData(
             header=['V_IDX', 'I_IDX', 'NREST'],
-            records=self._get_supply(zones, zone_map)
+            records=self._get_supply()
         )
 
         return data
@@ -127,7 +134,7 @@ class MulandDB:
                     db_models.c.agents_header,
                     db_models.c.agents_zones_header,
                     db_models.c.real_estates_zones_header])
-            .where(db_models.c.name == self.model)
+            .where(db_models.c.id == self.models_id)
             .limit(1))
 
         return dict(db.engine.execute(s).fetchone())
@@ -164,23 +171,23 @@ class MulandDB:
         #    points.idx
 
         values = ', '.join(
-            ['(%s, ST_Transform(ST_SetSRID(ST_Point(%s, %s), 4326), 900913))' % (idx, lng, lat)
-             for idx, (lng, lat) in zip(range(1, len(self.points) + 1), self.points)])
+            ['(%s, ST_Transform(ST_SetSRID(ST_Point(%s, %s), 4326), 900913))' %
+             (point['id'], point['lng'], point['lat'])
+             for point in self.points])
 
-        s = (select([text('points.idx AS point_id '),
-                     db_zones.c.id.label('zones_id'),
+        s = (select([text('points.idx '),
+                     db_zones.c.id,
                      db_zones.c.data])
-            .select_from(db_models
-                .join(db_zones, db_models.c.id == db_zones.c.models_id)
+            .select_from(db_zones
                 .join(text('(VALUES %s) AS points (idx, geom) ' % values),
                       func.ST_Contains(db_zones.c.area, text('points.geom'))))
-            .where(db_models.c.name == self.model)
+            .where(db_zones.c.models_id == self.models_id)
             .order_by(text('points.idx')))
 
         zone_map = []
         records = []
         for row in db.engine.execute(s):
-            data = [row[0]]
+            data = [row[0] + 1]
             data.extend(row[2])
             records.append(data)
             zone_map.append([row[0], row[1]])
@@ -200,8 +207,7 @@ class MulandDB:
                      db_agents.c.aggra_id,
                      db_agents.c.upperbb,
                      db_agents.c.data])
-            .select_from(db_agents.join(db_models, db_agents.c.models_id == db_models.c.id))
-            .where(db_models.c.name == self.model))
+            .where(db_agents.c.models_id == self.models_id))
 
         records = []
         for row in db.engine.execute(s):
@@ -214,28 +220,28 @@ class MulandDB:
     # agents_zones
     #"H_IDX";"I_IDX";"ACC";"P_LN_ATT"
     #1.00;1.00;0.7308194;0.0000000
-    def _get_agents_zones_records(self, zones, zone_map):
+    def _get_agents_zones_records(self):
         '''Get agents records'''
         db_models = db.models
         db_azones = db.agents_zones
 
+        values = ', '.join(['(%s, %s)' % (point['id'] + 1, point['zones_id'])
+                            for point in self.points])
+
         s = (select([db_azones.c.agents_id,
-                     db_azones.c.zones_id,
+                     text('points.idx'),
                      db_azones.c.acc,
                      db_azones.c.att,
                      db_azones.c.data])
             .select_from(db_azones
-                .join(db_models, db_azones.c.models_id == db_models.c.id))
-            .where(and_(db_models.c.name == self.model,
-                        db_azones.c.zones_id.in_(zones))))
+                .join(text('(VALUES %s) AS points (idx, zones_id) ' % values),
+                      db_azones.c.zones_id == text('points.zones_id')))
+            .where(db_azones.c.models_id == self.models_id))
 
-        info = {row[1]: list(row) for row in db.engine.execute(s)}
         records = []
-        for point_id, zone_id in zone_map:
-            zone_info = info[zone_id]
-            data = list(zone_info[0:4])
-            data.extend(zone_info[4])
-            data[1] = point_id
+        for row in db.engine.execute(s):
+            data = list(row[0:4])
+            data.extend(row[4])
             records.append(data)
 
         return records
@@ -243,27 +249,25 @@ class MulandDB:
     # bids_adjustments
     #"H_IDX";"V_IDX";"I_IDX";"BIDADJ"
     #1.00;1.00;1.00;0.0000000000
-    def _get_bids_adjustments_records(self, zones, zone_map):
+    def _get_bids_adjustments_records(self):
         '''Get bids_adjustments records'''
         db_badj = db.bids_adjustments
-        db_models = db.models
+
+        values = ', '.join(['(%s, %s, %s)' %
+            (point['id'] + 1, point['zones_id'], point['types_id'])
+            for point in self.points])
 
         s = (select([db_badj.c.agents_id,
                      db_badj.c.types_id,
-                     db_badj.c.zones_id,
+                     text('points.idx'),
                      db_badj.c.bidadj])
             .select_from(db_badj
-                .join(db_models, db_badj.c.models_id == db_models.c.id))
-            .where(and_(db_models.c.name == self.model,
-                        db_badj.c.zones_id.in_(zones))))
+                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
+                      and_(db_badj.c.zones_id == text('points.zones_id'),
+                           db_badj.c.types_id == text('points.types_id'))))
+            .where(db_badj.c.models_id == self.models_id))
 
-        info = {row[2]: list(row) for row in db.engine.execute(s)}
-        records = []
-        for point_id, zone_id in zone_map:
-            data = info[zone_id].copy()
-            data[2] = point_id
-            records.append(data)
-
+        records = [list(row) for row in db.engine.execute(s)]
         return records
 
     # bids_functions
@@ -272,7 +276,6 @@ class MulandDB:
     def _get_bids_functions_records(self):
         '''Get bids_functions records'''
         db_bfunc = db.bids_functions
-        db_models = db.models
 
         s = (select([db_bfunc.c.markets_id,
                      db_bfunc.c.aggra_id,
@@ -288,9 +291,7 @@ class MulandDB:
                      db_bfunc.c.cacc_y,
                      db_bfunc.c.czones_y,
                      db_bfunc.c.exppar_y])
-            .select_from(db_bfunc
-                .join(db_models, db_bfunc.c.models_id == db_models.c.id))
-            .where(db_models.c.name == self.model))
+            .where(db_bfunc.c.models_id == self.models_id))
 
         records = [list(row) for row in db.engine.execute(s)]
         return records
@@ -305,9 +306,7 @@ class MulandDB:
 
         s = (select([db_demand.c.agents_id,
                      db_demand.c.demand])
-            .select_from(db_demand
-                .join(db_models, db_demand.c.models_id == db_models.c.id))
-            .where(db_models.c.name == self.model))
+            .where(db_demand.c.models_id == self.models_id))
 
         records = [list(row) for row in db.engine.execute(s)]
         return records
@@ -315,81 +314,77 @@ class MulandDB:
     # demand_exogenous_cutoff
     #"H_IDX";"V_IDX";"I_IDX";"DCUTOFF"
     #1.00;1.00;1.00;1.00
-    def _get_demand_exogenous_cutoff_records(self, zones, zone_map):
+    def _get_demand_exogenous_cutoff_records(self):
         '''Get demand_exogenous_cutoff records'''
         db_decutoff = db.demand_exogenous_cutoff
         db_models = db.models
         db_zones = db.zones
 
+        values = ', '.join(['(%s, %s, %s)' %
+            (point['id'] + 1, point['zones_id'], point['types_id'])
+            for point in self.points])
+
         s = (select([db_decutoff.c.agents_id,
                      db_decutoff.c.types_id,
-                     db_decutoff.c.zones_id,
+                     text('points.idx'),
                      db_decutoff.c.dcutoff])
             .select_from(db_decutoff
-                .join(db_models, db_decutoff.c.models_id == db_models.c.id))
-            .where(and_(db_models.c.name == self.model,
-                        db_decutoff.c.zones_id.in_(zones))))
+                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
+                      and_(db_decutoff.c.zones_id == text('points.zones_id'),
+                           db_decutoff.c.types_id == text('points.types_id'))))
+            .where(db_decutoff.c.models_id == self.models_id))
 
-        info = {row[2]: list(row) for row in db.engine.execute(s)}
-        records = []
-        for point_id, zone_id in zone_map:
-            data = info[zone_id].copy()
-            data[2] = point_id
-            records.append(data)
-
+        records = [list(row) for row in db.engine.execute(s)]
         return records
 
     # real_estates_zones
     #"V_IDX";"I_IDX";"M_IDX";"LOTSIZE";"BUILT";"IS_HOUSE";"IS_APT"
     #1.00;1.00;1.00;3.4800000;0.027670;1.00;0.00
-    def _get_real_estates_zones(self, zones, zone_map):
+    def _get_real_estates_zones(self):
         '''Get real_estates_zones records'''
         db_rezones = db.real_estates_zones
         db_models = db.models
 
+        values = ', '.join(['(%s, %s, %s)' %
+            (point['id'] + 1, point['zones_id'], point['types_id'])
+            for point in self.points])
+
         s = (select([db_rezones.c.types_id,
-                     db_rezones.c.zones_id,
+                     text('points.idx'),
                      db_rezones.c.markets_id,
                      db_rezones.c.data])
             .select_from(db_rezones
-                .join(db_models, db_rezones.c.models_id == db_models.c.id))
-            .where(and_(db_models.c.name == self.model,
-                        db_rezones.c.zones_id.in_(zones))))
+                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
+                      and_(db_rezones.c.zones_id == text('points.zones_id'),
+                           db_rezones.c.types_id == text('points.types_id'))))
+            .where(db_rezones.c.models_id == self.models_id))
 
-        info = {row[1]: list(row) for row in db.engine.execute(s)}
         records = []
-        for point_id, zone_id in zone_map:
-            zone_info = info[zone_id]
-            data = list(zone_info[0:3])
-            data.extend(zone_info[3])
-            data[1] = point_id
+        for row in db.engine.execute(s):
+            data = list(row[:3])
+            data.extend(row[3])
             records.append(data)
-
         return records
 
     # rent_adjustments
     #"V_IDX";"I_IDX";"RENTADJ"
     #1.00;1.00;0.00
-    def _get_rent_adjustments(self, zones, zone_map):
+    def _get_rent_adjustments(self):
         '''Get rent_adjustments records'''
         db_rentadj = db.rent_adjustments
-        db_models = db.models
-        db_zones = db.zones
+
+        values = ', '.join(['(%s, %s, %s)' %
+            (point['id'] + 1, point['zones_id'], point['types_id'])
+            for point in self.points])
 
         s = (select([db_rentadj.c.types_id,
-                     db_rentadj.c.zones_id,
+                     text('points.idx'),
                      db_rentadj.c.adjustment])
             .select_from(db_rentadj
-                .join(db_models, db_rentadj.c.models_id == db_models.c.id))
-            .where(and_(db_models.c.name == self.model,
-                        db_rentadj.c.zones_id.in_(zones))))
-
-        info = {row[1]: list(row) for row in db.engine.execute(s)}
-        records = []
-        for point_id, zone_id in zone_map:
-            data = info[zone_id].copy()
-            data[1] = point_id
-            records.append(data)
+                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
+                      and_(db_rentadj.c.zones_id == text('points.zones_id'),
+                           db_rentadj.c.types_id == text('points.types_id'))))
+            .where(db_rentadj.c.models_id == self.models_id))
 
         records = [list(row) for row in db.engine.execute(s)]
         return records
@@ -412,9 +407,7 @@ class MulandDB:
                      db_rentfunc.c.crest_y,
                      db_rentfunc.c.czones_y,
                      db_rentfunc.c.exppar_y])
-            .select_from(db_rentfunc
-                .join(db_models, db_rentfunc.c.models_id == db_models.c.id))
-            .where(db_models.c.name == self.model))
+            .where(db_rentfunc.c.models_id == self.models_id))
 
         records = [list(row) for row in db.engine.execute(s)]
         return records
@@ -422,51 +415,46 @@ class MulandDB:
     # subsidies
     #"H_IDX";"V_IDX";"I_IDX";"SUBSIDIES"
     #1.00;1.00;1.00;0.0000000000
-    def _get_subsidies(self, zones, zone_map):
+    def _get_subsidies(self):
         '''Get subsidies records'''
         db_subsidies = db.subsidies
-        db_models = db.models
+
+        values = ', '.join(['(%s, %s, %s)' %
+            (point['id'] + 1, point['zones_id'], point['types_id'])
+            for point in self.points])
 
         s = (select([db_subsidies.c.agents_id,
                      db_subsidies.c.types_id,
-                     db_subsidies.c.zones_id,
+                     text('points.idx'),
                      db_subsidies.c.subsidies])
             .select_from(db_subsidies
-                .join(db_models, db_subsidies.c.models_id == db_models.c.id))
-            .where(and_(db_models.c.name == self.model,
-                        db_subsidies.c.zones_id.in_(zones))))
+                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
+                      and_(db_subsidies.c.zones_id == text('points.zones_id'),
+                           db_subsidies.c.types_id == text('points.types_id'))))
+            .where(db_subsidies.c.models_id == self.models_id))
 
-        info = {row[2]: list(row) for row in db.engine.execute(s)}
-        records = []
-        for point_id, zone_id in zone_map:
-            data = info[zone_id].copy()
-            data[2] = point_id
-            records.append(data)
-
+        records = [list(row) for row in db.engine.execute(s)]
         return records
 
     # supply
     #"V_IDX";"I_IDX";"NREST"
     #1.00;1.00;0.0000000000
-    def _get_supply(self, zones, zone_map):
+    def _get_supply(self):
         '''Get supply records'''
         db_supply = db.supply
-        db_models = db.models
-        db_zones = db.zones
+
+        values = ', '.join(['(%s, %s, %s)' %
+            (point['id'] + 1, point['zones_id'], point['types_id'])
+            for point in self.points])
 
         s = (select([db_supply.c.types_id,
-                     db_supply.c.zones_id,
+                     text('points.idx'),
                      db_supply.c.nrest])
             .select_from(db_supply
-                .join(db_models, db_supply.c.models_id == db_models.c.id))
-            .where(and_(db_models.c.name == self.model,
-                        db_supply.c.zones_id.in_(zones))))
+                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
+                      and_(db_supply.c.zones_id == text('points.zones_id'),
+                           db_supply.c.types_id == text('points.types_id'))))
+            .where(db_supply.c.models_id == self.models_id))
 
-        info = {row[1]: list(row) for row in db.engine.execute(s)}
-        records = []
-        for point_id, zone_id in zone_map:
-            data = info[zone_id].copy()
-            data[1] = point_id
-            records.append(data)
-
+        records = [list(row) for row in db.engine.execute(s)]
         return records
