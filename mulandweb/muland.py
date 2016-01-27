@@ -26,7 +26,6 @@ class Muland:
     '''Access Muland Application'''
 
     muland_binary = config.muland_binary
-    model_folder = config.muland_model
     work_folder = config.muland_work
 
     input_files = ['agents', 'agents_zones', 'bids_adjustments',
@@ -39,7 +38,7 @@ class Muland:
 
     csv_delimiter = ';'
 
-    # Check if muland binary, model folder and work folder are in place
+    # Check if muland binary and work folder are in place
     if not os.access(work_folder, os.R_OK & os.W_OK):
         if os.access(work_folder, os.F_OK):
             raise DependencyError('Could not access work folder.')
@@ -48,23 +47,17 @@ class Muland:
     if not os.access(muland_binary, os.X_OK):
         raise DependencyError('Could not find muland binary.')
 
-    if not os.access(model_folder, os.R_OK):
-        raise DependencyError('Could not access model folder.')
-
-    def __init__(self, model, **kwargs):
+    def __init__(self, **kwargs):
         '''Initialize Muland'''
-        model_folder = self.model_folder
         input_files = self.input_files
 
-        # Check if model exists
         for file in input_files:
-            filename = str(Path(model_folder, model, file + '.csv'))
-            accessible = os.access(filename, os.R_OK)
-            if not accessible:
-                raise ModelNotFound('Specified model was not found.')
+            if file not in kwargs:
+                raise TypeError("missing required argument: '%s'" % file)
+            if not isinstance(kwargs[file], MulandData):
+                raise TypeError("argument '%s' must be of type MulandData" % file)
 
         # Set instance attributes
-        self.model_dir = str(Path(model_folder, model))
         self.output_data = {}
         self.input_data = {key: value for key, value in kwargs.items()
                                       if key in input_files}
@@ -83,26 +76,16 @@ class Muland:
         os.mkdir(str(Path(working_dir, 'input')))
         os.mkdir(str(Path(working_dir, 'output')))
 
-        # Populate input directory with model files
-        model_folder = self.model_folder
-        for file in self.input_files:
-            if file in self.input_data: # Don't create symlink if user sent override
-                continue
-            model_file_path = str(Path(self.model_dir, file + '.csv').resolve())
-            work_file_path = str(Path(working_dir, 'input', file + '.csv'))
-            os.symlink(model_file_path, work_file_path)
-
         # Create files sent by user
-        for item in self.input_data:
-            data = self.input_data[item]
-            filename = str(Path(working_dir, 'input', item + '.csv'))
+        for key, value in self.input_data.items():
+            header = value.header
+            records = value.records
+            filename = str(Path(working_dir, 'input', key + '.csv'))
             with open(filename, 'w') as file:
                 writer = csv.writer(file, delimiter=self.csv_delimiter,
                                     quoting=csv.QUOTE_NONNUMERIC)
-                if len(data) > 0: # Add fake column headers
-                    writer.writerow(('col',) * len(data[0]))
-
-                for row in data:
+                writer.writerow(header)
+                for row in records:
                     writer.writerow(row)
 
     def _run_muland(self, working_dir, timeout=2):
