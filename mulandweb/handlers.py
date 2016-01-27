@@ -25,11 +25,11 @@ def post_handler(model):
     if data_in is None:
         raise bottle.HTTPError(400, 'No input data.')
 
-    if not isinstance(data_in, dict) or 'parcels' not in data_in:
+    if not isinstance(data_in, dict) or 'loc' not in data_in:
         raise bottle.HTTPError(400, 'Invalid input data.')
 
     locations = data_in['loc']
-    if not isinstance(loc, list):
+    if not isinstance(locations, list):
         raise bottle.HTTPError(400, "'loc' isn't an array")
 
     dbloc = []
@@ -61,7 +61,8 @@ def post_handler(model):
                 raise bottle.HTTPError(400, "'amount' isn't a number")
 
         dbloc.append({'lnglat': lnglat,
-                      'units': {'type': unit['type']}})
+                      'units': [{'type': unit['type']}
+                                for unit in units],})
 
     # Get data from MulandDB
     try:
