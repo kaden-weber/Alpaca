@@ -7,5 +7,4 @@ from . import config, app
 
 app.run(host=config.mulandweb_host,
         port=config.mulandweb_port,
-        server='gunicorn',
-        workers=config.mulandweb_workers)
+        server='gunicorn')
