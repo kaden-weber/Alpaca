@@ -25,8 +25,11 @@ def post_handler(model):
     if data_in is None:
         raise bottle.HTTPError(400, 'No input data.')
 
-    if not isinstance(data_in, dict) or 'loc' not in data_in:
-        raise bottle.HTTPError(400, 'Invalid input data.')
+    if not isinstance(data_in, dict):
+        raise bottle.HTTPError(400, 'Input data isn\'t an object.')
+
+    if 'loc' not in data_in:
+        raise bottle.HTTPError(400, "'loc' is not present at input data.")
 
     locations = data_in['loc']
     if not isinstance(locations, list):
