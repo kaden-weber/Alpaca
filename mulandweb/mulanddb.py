@@ -21,8 +21,12 @@ class MulandDB:
         '''Initialize class'''
         assert isinstance(model, str)
 
+        self.conn = db.engine.connect()
+
         s = select([db.models.c.id]).where(db.models.c.name == model)
-        result = db.engine.execute(s).fetchone()
+        result = self.conn.execute(s)
+        row = result.fetchone()
+        result.close()
         if result is None:
             raise ModelNotFound
 
@@ -39,7 +43,7 @@ class MulandDB:
                 points.append(point)
                 i += 1
 
-        self.models_id = result[0]
+        self.models_id = row[0]
         self.points = points
         self.loc = locations
 
@@ -137,7 +141,11 @@ class MulandDB:
             .where(db_models.c.id == self.models_id)
             .limit(1))
 
-        return dict(db.engine.execute(s).fetchone())
+        result = self.conn.execute(s)
+        header = dict(result.fetchone())
+        result.close()
+
+        return header
 
     # zones
     #"I_IDX";"INDAREA";"COMAREA";"SERVAREA";"TOTAREA";"TOTBUILT";"INCOMEHH";"DIST_ACC"
@@ -166,7 +174,7 @@ class MulandDB:
         #        (2, ST_Transform(ST_SetSRID(ST_Point(-70.5602832772102, 41.846691982857724), 4326), 900913))
         #    ) AS points (idx, geom) ON ST_Contains(zones.area, points.geom)
         #WHERE
-        #    models.name = 'boston'
+        #    models.id = 1
         #ORDER BY
         #    points.idx
 
@@ -184,13 +192,15 @@ class MulandDB:
             .where(db_zones.c.models_id == self.models_id)
             .order_by(text('points.idx')))
 
+        result = self.conn.execute(s)
         zone_map = []
         records = []
-        for row in db.engine.execute(s):
+        for row in result:
             data = [row[0] + 1]
             data.extend(row[2])
             records.append(data)
             zone_map.append([row[0], row[1]])
+        result.close()
 
         return zone_map, records
 
@@ -209,11 +219,13 @@ class MulandDB:
                      db_agents.c.data])
             .where(db_agents.c.models_id == self.models_id))
 
+        result = self.conn.execute(s)
         records = []
         for row in db.engine.execute(s):
             data = list(row[0:4])
             data.extend(row[4])
             records.append(data)
+        result.close()
 
         return records
 
@@ -238,11 +250,13 @@ class MulandDB:
                       db_azones.c.zones_id == text('points.zones_id')))
             .where(db_azones.c.models_id == self.models_id))
 
+        result = self.conn.execute(s)
         records = []
         for row in db.engine.execute(s):
             data = list(row[0:4])
             data.extend(row[4])
             records.append(data)
+        result.close()
 
         return records
 
@@ -267,7 +281,10 @@ class MulandDB:
                            db_badj.c.types_id == text('points.types_id'))))
             .where(db_badj.c.models_id == self.models_id))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        result = self.conn.execute(s)
+        records = [list(row) for row in result]
+        result.close()
+
         return records
 
     # bids_functions
@@ -293,7 +310,10 @@ class MulandDB:
                      db_bfunc.c.exppar_y])
             .where(db_bfunc.c.models_id == self.models_id))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        result = self.conn.execute(s)
+        records = [list(row) for row in result]
+        result.close()
+
         return records
 
     # demand
@@ -308,7 +328,10 @@ class MulandDB:
                      db_demand.c.demand])
             .where(db_demand.c.models_id == self.models_id))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        result = self.conn.execute(s)
+        records = [list(row) for row in result]
+        result.close()
+
         return records
 
     # demand_exogenous_cutoff
@@ -334,7 +357,10 @@ class MulandDB:
                            db_decutoff.c.types_id == text('points.types_id'))))
             .where(db_decutoff.c.models_id == self.models_id))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        result = self.conn.execute(s)
+        records = [list(row) for row in result]
+        result.close()
+
         return records
 
     # real_estates_zones
@@ -359,11 +385,14 @@ class MulandDB:
                            db_rezones.c.types_id == text('points.types_id'))))
             .where(db_rezones.c.models_id == self.models_id))
 
+        result = self.conn.execute(s)
         records = []
-        for row in db.engine.execute(s):
+        for row in result:
             data = list(row[:3])
             data.extend(row[3])
             records.append(data)
+
+        result.close()
         return records
 
     # rent_adjustments
@@ -386,7 +415,10 @@ class MulandDB:
                            db_rentadj.c.types_id == text('points.types_id'))))
             .where(db_rentadj.c.models_id == self.models_id))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        result = self.conn.execute(s)
+        records = [list(row) for row in result]
+        result.close()
+
         return records
 
     # rent_functions
@@ -409,7 +441,10 @@ class MulandDB:
                      db_rentfunc.c.exppar_y])
             .where(db_rentfunc.c.models_id == self.models_id))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        result = self.conn.execute(s)
+        records = [list(row) for row in result]
+        result.close()
+
         return records
 
     # subsidies
@@ -433,7 +468,10 @@ class MulandDB:
                            db_subsidies.c.types_id == text('points.types_id'))))
             .where(db_subsidies.c.models_id == self.models_id))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        result = self.conn.execute(s)
+        records = [list(row) for row in result]
+        result.close()
+
         return records
 
     # supply
@@ -456,5 +494,8 @@ class MulandDB:
                            db_supply.c.types_id == text('points.types_id'))))
             .where(db_supply.c.models_id == self.models_id))
 
-        records = [list(row) for row in db.engine.execute(s)]
+        result = self.conn.execute(s)
+        records = [list(row) for row in result]
+        result.close()
+
         return records
