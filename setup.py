@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='mulandweb',
-      version='0.1',
+      version='0.2',
       description='Web Interface for the Muland Application',
       url='https://bitbucket.org/leandropls/mulandweb',
       author='Leandro Pereira de Lima e Silva',
@@ -13,5 +13,8 @@ setup(name='mulandweb',
       install_requires=[
         'bottle',
         'gunicorn',
+        'GeoAlchemy2',
+        'psycopg2',
+        'SQLAlchemy'
       ],
       zip_safe=False)
