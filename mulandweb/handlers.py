@@ -55,10 +55,6 @@ def post_handler(model):
                 raise bottle.HTTPError(400, "'type' not in unit")
             if not isinstance(unit['type'], (int, float)):
                 raise bottle.HTTPError(400, "'type' isn't a number")
-            if 'amount' not in unit:
-                raise bottle.HTTPError(400, "'amount' not in unit")
-            if not isinstance(unit['amount'], (int, float)):
-                raise bottle.HTTPError(400, "'amount' isn't a number")
 
         dbloc.append({'lnglat': lnglat,
                       'units': [{'type': unit['type']}
