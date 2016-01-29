@@ -2,11 +2,15 @@
 
 from math import pi, acos, sin, cos, sqrt, log, atan, exp
 from collections import namedtuple
+from itertools import zip_longest
 
+import shapefile
 from sqlalchemy import select, func, and_, text
+from shapely.geometry import Polygon
 
 from .muland import MulandData
 from . import db
+
 
 __all__ = ['MulandDB']
 
@@ -499,3 +503,116 @@ class MulandDB:
         result.close()
 
         return records
+
+class ModelImporter:
+    def __init__(self, name, srid=4326):
+        self.name = name
+        self.zones_csv = '%s/zones.csv' % name
+        self.agents_csv = '%s/agents.csv' % name
+        self.agents_zones_csv = '%s/agents_zones.csv' % name
+        self.real_estates_zones_csv = '%s/real_estates_zones.csv' % name
+        self.rent_adjustments_csv = '%s/rent_adjustments.csv' % name
+        self.shapefile = '%s/%s.shp' % (name, name)
+        self.models_id = None
+
+    def import_model(self):
+        '''Run all the steps to import a model'''
+        self.models_id = self.db_create_model()
+        self.db_import_zones()
+        self.db_import_rent_adjustments()
+
+    def db_create_model(self):
+        '''Create entry for the model at the db and returns its id'''
+        # Find headers
+        with open(self.zones_csv) as f:
+            reader = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            zones_header = tuple(next(reader)[1:])
+
+        with open(self.agents_csv) as f:
+            reader = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            agents_header = tuple(next(reader)[4:])
+
+        with open(self.agents_zones_csv) as f:
+            reader = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            agents_zones_header = tuple(next(reader)[4:])
+
+        with open(self.real_estates_zones_csv) as f:
+            reader = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            real_estates_zones_header = tuple(next(reader)[3:])
+
+        # Insert model
+        s = db.models.insert().values(
+            name=model_name,
+            zones_header=zones_header,
+            agents_header=agents_header,
+            agents_zones_header=agents_zones_header,
+            real_estates_zones_header=real_estates_zones_header
+        ).returning(db.models.c.id)
+
+        result = db.engine.execute(s)
+        models_id = result.fetchone()[0]
+        result.close()
+
+        return models_id
+
+    def _get_zone_shapes(self):
+        '''Parse shapefile and return mapping between zone_id and polygon wkt'''
+        sf = shapefile.Reader(self.shapefile)
+        fields = [x[0] for x in sf.fields[1:]]
+
+        zone_wkt = {}
+        for sr in sf.shapeRecords():
+            assert sr.shape.shapeType == 5 # Polygon
+
+            # find zones_id
+            srfields = dict(zip(fields, sr.record))
+            zones_id = srfields['ID']
+
+            # find polygon rings
+            parts = sr.shape.parts
+            points = sr.shape.points
+            ringidx = list(zip_longest(parts, parts[1:]))
+            exterior = points[ringidx[0][0]:ringidx[0][1]]
+            interior = [points[i:j] for i, j in ringidx[1:]]
+
+            # generate polygon wkt
+            polygon = Polygon(exterior, interior)
+            wkt = polygon.wkt
+            zone_wkt[zones_id] = wkt
+
+        return zone_wkt
+
+    def db_import_zones(self):
+        '''Import zones.csv'''
+        assert self.models_id
+        zone_wkt = self._get_zone_shapes()
+
+        # Parse zone file
+        values = []
+        with open(self.zones_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r) # skip header
+            for row in r:
+                zones_id = int(row[0])
+                data = tuple(row[1:])
+                area = func.ST_Transform(
+                    func.ST_GeomFromText(zone_wkt[int(row[0])], self.srid),
+                    900913)
+                v = {'models_id': self.models_id, 'id': zones_id,
+                     'area': area, 'data': data}
+                values.append(v)
+
+        result = db.engine.execute(db.zones.insert().values(values))
+        result.close()
+
+    def db_import_rent_adjustments(self):
+        '''Import rent_adjustments.csv'''
+        values = []
+        with open(self.rent_adjustments_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            header = next(r)
+            values.extend(({'types_id': int(row[0]), 'zones_id': int(row[1]),
+                            'models_id': self.models_id, 'adjustment': row[2]}
+                           for row in r))
+        result = db.engine.execute(db.rent_adjustments.insert().values(values))
+        result.close()
