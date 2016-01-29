@@ -15,6 +15,8 @@ setup(name='mulandweb',
         'gunicorn',
         'GeoAlchemy2',
         'psycopg2',
-        'SQLAlchemy'
+        'SQLAlchemy',
+        'pyshp',
+        'shapely',
       ],
       zip_safe=False)
