@@ -1,7 +1,8 @@
 # coding: utf-8
+# pylint: disable=invalid-name,bad-continuation,line-too-long
+'''Implements MulandWeb's database access interfaces'''
 
 import csv
-from collections import namedtuple
 from itertools import zip_longest
 
 import shapefile
@@ -12,15 +13,18 @@ from .muland import MulandData
 from . import db
 
 
-__all__ = ['MulandDB']
+__all__ = ['MulandDB', 'MulandDBException', 'ModelNotFound', 'ModelImporter']
 
 class MulandDBException(Exception):
+    '''Base Exception class for MulandDB'''
     pass
 class ModelNotFound(MulandDBException):
+    '''Model was not found at the database'''
     pass
 
 class MulandDB:
     '''Provides data retrival from Muland Database'''
+    # pylint: disable=too-few-public-methods
     def __init__(self, model: str, locations: list):
         '''Initialize class'''
         assert isinstance(model, str)
@@ -149,6 +153,7 @@ class MulandDB:
         header = dict(result.fetchone())
         result.close()
 
+
         return header
 
     # zones
@@ -162,25 +167,6 @@ class MulandDB:
         of records for the zones file.
         '''
         db_zones = db.zones
-        db_models = db.models
-
-        # Generated query like:
-        #SELECT
-        #    points.idx as point_id,
-        #    zones.id as zones_id,
-        #    zones.data
-        #FROM
-        #    models
-        #    JOIN zones ON zones.models_id = models.id
-        #    JOIN (VALUES
-        #        (0, ST_Transform(ST_SetSRID(ST_Point(-70.5602732772102, 41.846681982857724), 4326), 900913)),
-        #        (1, ST_Transform(ST_SetSRID(ST_Point(-70.548986695639755, 41.818260285896393), 4326), 900913)),
-        #        (2, ST_Transform(ST_SetSRID(ST_Point(-70.5602832772102, 41.846691982857724), 4326), 900913))
-        #    ) AS points (idx, geom) ON ST_Contains(zones.area, points.geom)
-        #WHERE
-        #    models.id = 1
-        #ORDER BY
-        #    points.idx
 
         values = ', '.join(
             ['(%s, ST_Transform(ST_SetSRID(ST_Point(%s, %s), 4326), 900913))' %
@@ -213,7 +199,6 @@ class MulandDB:
     #1.00;1.00;1.00;50000.00;674.8841398;11.8789000;0.00;1.00
     def _get_agents_records(self):
         '''Get agents records'''
-        db_models = db.models
         db_agents = db.agents
 
         s = (select([db_agents.c.id,
@@ -238,7 +223,6 @@ class MulandDB:
     #1.00;1.00;0.7308194;0.0000000
     def _get_agents_zones_records(self):
         '''Get agents records'''
-        db_models = db.models
         db_azones = db.agents_zones
 
         values = ', '.join(['(%s, %s)' % (point['id'] + 1, point['zones_id'])
@@ -326,7 +310,6 @@ class MulandDB:
     def _get_demand_records(self):
         '''Get demand records'''
         db_demand = db.demand
-        db_models = db.models
 
         s = (select([db_demand.c.agents_id,
                      db_demand.c.demand])
@@ -344,8 +327,6 @@ class MulandDB:
     def _get_demand_exogenous_cutoff_records(self):
         '''Get demand_exogenous_cutoff records'''
         db_decutoff = db.demand_exogenous_cutoff
-        db_models = db.models
-        db_zones = db.zones
 
         values = ', '.join(['(%s, %s, %s)' %
             (point['id'] + 1, point['zones_id'], point['types_id'])
@@ -373,7 +354,6 @@ class MulandDB:
     def _get_real_estates_zones(self):
         '''Get real_estates_zones records'''
         db_rezones = db.real_estates_zones
-        db_models = db.models
 
         values = ', '.join(['(%s, %s, %s)' %
             (point['id'] + 1, point['zones_id'], point['types_id'])
@@ -431,7 +411,6 @@ class MulandDB:
     def _get_rent_functions(self):
         '''Get rent_functions records'''
         db_rentfunc = db.rent_functions
-        db_models = db.models
 
         s = (select([db_rentfunc.c.markets_id,
                      db_rentfunc.c.idattrib,
@@ -505,6 +484,8 @@ class MulandDB:
         return records
 
 class ModelImporter:
+    '''Import models into the database'''
+    # pylint: disable=too-few-public-methods,too-many-instance-attributes,no-value-for-parameter
     def __init__(self, name, srid=4326):
         self.name = name
         self.zones_csv = '%s/zones.csv' % name
@@ -628,7 +609,7 @@ class ModelImporter:
         values = []
         with open(self.rent_adjustments_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
-            header = next(r)
+            next(r)
             values.extend(({'types_id': int(row[0]), 'zones_id': int(row[1]),
                             'models_id': self.models_id, 'adjustment': row[2]}
                            for row in r))
@@ -669,7 +650,7 @@ class ModelImporter:
             next(r) # skip header
             values = [{'models_id': self.models_id,
                        'id': row[0],
-                       'markets_id': row[1], 
+                       'markets_id': row[1],
                        'aggra_id': row[2],
                        'upperbb': row[3],
                        'data': tuple(row[4:])}
@@ -752,7 +733,7 @@ class ModelImporter:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
             counter = 0
-            while True: 
+            while True:
                 values = [{'models_id': self.models_id, 'agents_id': row[0],
                            'types_id': row[1], 'zones_id': row[2],
                            'bidadj': row[3]}
