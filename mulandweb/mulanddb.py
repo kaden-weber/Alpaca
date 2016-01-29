@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from math import pi, acos, sin, cos, sqrt, log, atan, exp
+import csv
 from collections import namedtuple
 from itertools import zip_longest
 
@@ -512,14 +512,32 @@ class ModelImporter:
         self.agents_zones_csv = '%s/agents_zones.csv' % name
         self.real_estates_zones_csv = '%s/real_estates_zones.csv' % name
         self.rent_adjustments_csv = '%s/rent_adjustments.csv' % name
+        self.supply_csv = '%s/supply.csv' % name
+        self.demand_csv = '%s/demand.csv' % name
+        self.subsidies_csv = '%s/subsidies.csv' % name
+        self.demand_exogenous_cutoff_csv = '%s/demand_exogenous_cutoff.csv' % name
+        self.bids_adjustments_csv = '%s/bids_adjustments.csv' % name
+        self.bids_functions_csv = '%s/bids_functions.csv' % name
+        self.rent_functions_csv = '%s/rent_functions.csv' % name
         self.shapefile = '%s/%s.shp' % (name, name)
         self.models_id = None
+        self.srid = srid
 
     def import_model(self):
         '''Run all the steps to import a model'''
         self.models_id = self.db_create_model()
         self.db_import_zones()
         self.db_import_rent_adjustments()
+        self.db_import_supply()
+        self.db_import_real_estates_zones()
+        self.db_import_agents()
+        self.db_import_demand()
+        self.db_import_subsidies()
+        self.db_import_demand_exogenous_cutoff()
+        self.db_import_agents_zones()
+        self.db_import_bids_adjustments()
+        self.db_import_bids_functions()
+        self.db_import_rent_functions()
 
     def db_create_model(self):
         '''Create entry for the model at the db and returns its id'''
@@ -542,7 +560,7 @@ class ModelImporter:
 
         # Insert model
         s = db.models.insert().values(
-            name=model_name,
+            name=self.name,
             zones_header=zones_header,
             agents_header=agents_header,
             agents_zones_header=agents_zones_header,
@@ -616,3 +634,172 @@ class ModelImporter:
                            for row in r))
         result = db.engine.execute(db.rent_adjustments.insert().values(values))
         result.close()
+
+    def db_import_supply(self):
+        '''Import supply.csv'''
+        with open(self.supply_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r)
+            values = [{'types_id': int(row[0]),
+                       'zones_id': int(row[1]),
+                       'models_id': self.models_id,
+                       'nrest': row[2]}
+                      for row in r]
+        result = db.engine.execute(db.supply.insert().values(values))
+        result.close()
+
+    def db_import_real_estates_zones(self):
+        '''Import real_estates_zones.csv'''
+        with open(self.real_estates_zones_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r)
+            values = [{'models_id': self.models_id,
+                       'types_id': int(row[0]),
+                       'zones_id': int(row[1]),
+                       'markets_id': int(row[2]),
+                       'data': tuple(row[3:])}
+                      for row in r]
+        result = db.engine.execute(db.real_estates_zones.insert().values(values))
+        result.close()
+
+    def db_import_agents(self):
+        '''Import agents.csv'''
+        with open(self.agents_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r) # skip header
+            values = [{'models_id': self.models_id,
+                       'id': row[0],
+                       'markets_id': row[1], 
+                       'aggra_id': row[2],
+                       'upperbb': row[3],
+                       'data': tuple(row[4:])}
+                      for row in r]
+        result = db.engine.execute(db.agents.insert().values(values))
+        result.close()
+
+    def db_import_demand(self):
+        '''Import demand.csv'''
+        with open(self.demand_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r) # skip header
+            values = [{'models_id': self.models_id,
+                       'agents_id': row[0],
+                       'demand': row[1]}
+                      for row in r]
+        result = db.engine.execute(db.demand.insert().values(values))
+        result.close()
+
+    def db_import_subsidies(self):
+        '''Import subsidies.csv'''
+        with open(self.subsidies_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r) # skip header
+            counter = 0
+            while True:
+                values = [{'models_id': self.models_id, 'agents_id': row[0],
+                           'types_id': row[1], 'zones_id': row[2],
+                           'subsidies': row[3]}
+                           for row, _ in zip(r, range(5000))]
+                if len(values) == 0:
+                    break
+                result = db.engine.execute(db.subsidies.insert().values(values))
+                result.close()
+                counter += len(values)
+                if len(values) < 5000:
+                    break
+
+    def db_import_demand_exogenous_cutoff(self):
+        '''Import demand_exogenous_cutoff.csv'''
+        with open(self.demand_exogenous_cutoff_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r) # skip header
+            counter = 0
+            while True:
+                values = [{'models_id': self.models_id, 'agents_id': row[0],
+                           'types_id': row[1], 'zones_id': row[2],
+                           'dcutoff': row[3]}
+                           for row, _ in zip(r, range(5000))]
+                if len(values) == 0:
+                    break
+                result = db.engine.execute(db.demand_exogenous_cutoff.insert().values(values))
+                result.close()
+                counter += len(values)
+                if len(values) < 5000:
+                    break
+
+    def db_import_agents_zones(self):
+        '''Import agents_zones.csv'''
+        with open(self.agents_zones_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r) # skip header
+            counter = 0
+            while True:
+                values = [{'models_id': self.models_id, 'agents_id': row[0],
+                           'zones_id': row[1], 'acc': row[2], 'att': row[3],
+                           'data': tuple(row[4:])}
+                          for row, _ in zip(r, range(5000))]
+                if len(values) == 0:
+                    break
+                result = db.engine.execute(db.agents_zones.insert().values(values))
+                result.close()
+                counter += len(values)
+                if len(values) < 5000:
+                    break
+
+    def db_import_bids_adjustments(self):
+        '''Import bids_adjustments.csv'''
+        with open(self.bids_adjustments_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r) # skip header
+            counter = 0
+            while True: 
+                values = [{'models_id': self.models_id, 'agents_id': row[0],
+                           'types_id': row[1], 'zones_id': row[2],
+                           'bidadj': row[3]}
+                          for row, _ in zip(r, range(5000))]
+                if len(values) == 0:
+                    break
+                result = db.engine.execute(db.bids_adjustments.insert().values(values))
+                result.close()
+                counter += len(values)
+                if len(values) < 5000:
+                    break
+
+    def db_import_bids_functions(self):
+        '''Import bids_functions.csv'''
+        with open(self.bids_functions_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r) # skip header
+            counter = 0
+            while True:
+                values = [{'models_id': self.models_id, 'markets_id': row[0],
+                           'aggra_id': row[1], 'idattrib': row[2],
+                           'lineapar': row[3], 'cagent_x': row[4],
+                           'crest_x': row[5], 'cacc_x': row[6],
+                           'czones_x': row[7], 'exppar_x': row[8],
+                           'cagent_y': row[9], 'crest_y': row[10],
+                           'cacc_y': row[11], 'czones_y': row[12],
+                           'exppar_y': row[13]}
+                          for row, _ in zip(r, range(5000))]
+                if len(values) == 0:
+                    break
+                result = db.engine.execute(db.bids_functions.insert().values(values))
+                result.close()
+                counter += len(values)
+                if len(values) < 5000:
+                    break
+
+    def db_import_rent_functions(self):
+        '''Import rent_functions.csv'''
+        with open(self.rent_functions_csv) as f:
+            r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+            next(r) # skip header
+            values = [{'models_id': self.models_id, 'markets_id': row[0],
+                       'idattrib': row[1], 'scalepar': row[2],
+                       'lineapar': row[3], 'crest_x': row[4],
+                       'czones_x': row[5], 'exppar_x': row[6],
+                       'crest_y': row[7], 'czones_y': row[8],
+                       'exppar_y': row[9]}
+                      for row in r]
+            result = db.engine.execute(db.rent_functions.insert().values(values))
+            result.close()
