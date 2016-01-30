@@ -41,6 +41,9 @@ def main():
                         help="import model 'model_name' with name 'model_name'")
     action.add_argument('-c', '--create-tables', action='store_true',
                         help='create mulandweb tables at the database.')
+    parser.add_argument('--import-srid', dest='srid',
+                        metavar='srid', type=int, nargs='?', default=4326,
+                        help='specify SRID used in shape files when importing')
     args = parser.parse_args()
 
     if args.run:
@@ -48,7 +51,7 @@ def main():
         return
 
     if args.import_name:
-        import_model(args.import_name)
+        import_model(args.import_name, srid=args.srid)
         return
 
     if args.create_tables:
