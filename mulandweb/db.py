@@ -1,4 +1,6 @@
 # coding: utf-8
+# pylint: disable=bad-continuation,invalid-name
+'''Specifies database tables and provides function to create them'''
 
 from sqlalchemy import create_engine, Table, Column, MetaData
 from sqlalchemy import Integer, String, Float, ForeignKey, Sequence
@@ -10,7 +12,7 @@ from . import config
 engine = create_engine(config.db_url)
 meta = MetaData()
 
-models = Table('models', meta,
+models = Table(config.db_prefix + 'models', meta,
     Column('id', Integer, Sequence('models_id_seq'), primary_key=True),
     Column('name', String, index=True, nullable=False, unique=True),
     Column('zones_header', ARRAY(String, zero_indexes=True), nullable=False),
@@ -19,137 +21,129 @@ models = Table('models', meta,
     Column('real_estates_zones_header', ARRAY(String, zero_indexes=True), nullable=False),
 )
 
-real_estate_types = Table('real_estate_types', meta,
-    Column('id', Integer, primary_key=True),
-    Column('description', String),
-)
-
-markets = Table('markets', meta,
-    Column('id', Integer, primary_key=True),
-    Column('description', String),
-)
-
-rent_adjustments = Table('rent_adjustments', meta,
-    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+rent_adjustments = Table(config.db_prefix + 'rent_adjustments', meta,
+    Column('types_id', Integer, primary_key=True),
     Column('zones_id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('adjustment', Float),
+    Column('adjustment', Float, nullable=False),
     ForeignKeyConstraint(['zones_id', 'models_id'], ['zones.id', 'zones.models_id']),
 )
 
-supply = Table('supply', meta,
-    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+supply = Table(config.db_prefix + 'supply', meta,
+    Column('types_id', Integer, primary_key=True),
     Column('zones_id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('nrest', Float),
+    Column('nrest', Float, nullable=False),
     ForeignKeyConstraint(['zones_id', 'models_id'], ['zones.id', 'zones.models_id']),
 )
 
-real_estates_zones = Table('real_estates_zones', meta,
-    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+real_estates_zones = Table(config.db_prefix + 'real_estates_zones', meta,
+    Column('types_id', Integer, primary_key=True),
     Column('zones_id', Integer, primary_key=True),
-    Column('markets_id', Integer, ForeignKey('markets.id'), primary_key=True),
+    Column('markets_id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('data', ARRAY(Float, zero_indexes=True)),
+    Column('data', ARRAY(Float, zero_indexes=True), nullable=False),
     ForeignKeyConstraint(['zones_id', 'models_id'], ['zones.id', 'zones.models_id']),
 )
 
-agents = Table('agents', meta,
+agents = Table(config.db_prefix + 'agents', meta,
     Column('id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('markets_id', Integer, ForeignKey('markets.id')),
-    Column('aggra_id', Integer),
-    Column('upperbb', Float),
-    Column('data', ARRAY(Float, zero_indexes=True)),
+    Column('markets_id', Integer, nullable=False),
+    Column('aggra_id', Integer, nullable=False),
+    Column('upperbb', Float, nullable=False),
+    Column('data', ARRAY(Float, zero_indexes=True), nullable=False),
 )
 
-zones = Table('zones', meta,
+zones = Table(config.db_prefix + 'zones', meta,
     Column('id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('area', Geometry(srid=900913, spatial_index=True)),
-    Column('data', ARRAY(Float, zero_indexes=True)),
+    Column('area', Geometry(srid=900913, spatial_index=True), nullable=False),
+    Column('data', ARRAY(Float, zero_indexes=True), nullable=False),
 )
 
-demand = Table('demand', meta,
+demand = Table(config.db_prefix + 'demand', meta,
     Column('agents_id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('demand', Float),
+    Column('demand', Float, nullable=False),
     ForeignKeyConstraint(['agents_id', 'models_id'], ['agents.id', 'agents.models_id']),
 )
 
-subsidies = Table('subsidies', meta,
+subsidies = Table(config.db_prefix + 'subsidies', meta,
     Column('agents_id', Integer, primary_key=True),
-    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('types_id', Integer, primary_key=True),
     Column('zones_id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('subsidies', Float),
+    Column('subsidies', Float, nullable=False),
     ForeignKeyConstraint(['zones_id', 'models_id'], ['zones.id', 'zones.models_id']),
     ForeignKeyConstraint(['agents_id', 'models_id'], ['agents.id', 'agents.models_id']),
 )
 
-demand_exogenous_cutoff = Table('demand_exogenous_cutoff', meta,
+demand_exogenous_cutoff = Table(config.db_prefix + 'demand_exogenous_cutoff', meta,
     Column('agents_id', Integer, primary_key=True),
-    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('types_id', Integer, primary_key=True),
     Column('zones_id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('dcutoff', Float),
+    Column('dcutoff', Float, nullable=False),
     ForeignKeyConstraint(['zones_id', 'models_id'], ['zones.id', 'zones.models_id']),
     ForeignKeyConstraint(['agents_id', 'models_id'], ['agents.id', 'agents.models_id']),
 )
 
-agents_zones = Table('agents_zones', meta,
+agents_zones = Table(config.db_prefix + 'agents_zones', meta,
     Column('agents_id', Integer, primary_key=True),
     Column('zones_id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('acc', Float),
-    Column('att', Float),
+    Column('acc', Float, nullable=False),
+    Column('att', Float, nullable=False),
     Column('data', ARRAY(Float, zero_indexes=True)),
     ForeignKeyConstraint(['zones_id', 'models_id'], ['zones.id', 'zones.models_id']),
     ForeignKeyConstraint(['agents_id', 'models_id'], ['agents.id', 'agents.models_id']),
 )
 
-bids_adjustments = Table('bids_adjustments', meta,
+bids_adjustments = Table(config.db_prefix + 'bids_adjustments', meta,
     Column('agents_id', Integer, primary_key=True),
-    Column('types_id', Integer, ForeignKey('real_estate_types.id'), primary_key=True),
+    Column('types_id', Integer, primary_key=True),
     Column('zones_id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('bidadj', Float),
+    Column('bidadj', Float, nullable=False),
     ForeignKeyConstraint(['zones_id', 'models_id'], ['zones.id', 'zones.models_id']),
     ForeignKeyConstraint(['agents_id', 'models_id'], ['agents.id', 'agents.models_id']),
 )
 
-bids_functions = Table('bids_functions', meta,
+bids_functions = Table(config.db_prefix + 'bids_functions', meta,
     Column('id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('markets_id', Integer, ForeignKey('markets.id')),
-    Column('aggra_id', Integer),
-    Column('idattrib', Float),
-    Column('lineapar', Float),
-    Column('cagent_x', Float),
-    Column('crest_x', Float),
-    Column('cacc_x', Float),
-    Column('czones_x', Float),
-    Column('exppar_x', Float),
-    Column('cagent_y', Float),
-    Column('crest_y', Float),
-    Column('cacc_y', Float),
-    Column('czones_y', Float),
-    Column('exppar_y', Float),
+    Column('markets_id', Integer, nullable=False),
+    Column('aggra_id', Integer, nullable=False),
+    Column('idattrib', Float, nullable=False),
+    Column('lineapar', Float, nullable=False),
+    Column('cagent_x', Float, nullable=False),
+    Column('crest_x', Float, nullable=False),
+    Column('cacc_x', Float, nullable=False),
+    Column('czones_x', Float, nullable=False),
+    Column('exppar_x', Float, nullable=False),
+    Column('cagent_y', Float, nullable=False),
+    Column('crest_y', Float, nullable=False),
+    Column('cacc_y', Float, nullable=False),
+    Column('czones_y', Float, nullable=False),
+    Column('exppar_y', Float, nullable=False),
 )
 
-rent_functions = Table('rent_functions', meta,
+rent_functions = Table(config.db_prefix + 'rent_functions', meta,
     Column('id', Integer, primary_key=True),
     Column('models_id', Integer, ForeignKey('models.id'), primary_key=True),
-    Column('markets_id', Integer, ForeignKey('markets.id')),
-    Column('idattrib', Float),
-    Column('scalepar', Float),
-    Column('lineapar', Float),
-    Column('crest_x', Float),
-    Column('czones_x', Float),
-    Column('exppar_x', Float),
-    Column('crest_y', Float),
-    Column('czones_y', Float),
-    Column('exppar_y', Float),
+    Column('markets_id', Integer, nullable=False),
+    Column('idattrib', Float, nullable=False),
+    Column('scalepar', Float, nullable=False),
+    Column('lineapar', Float, nullable=False),
+    Column('crest_x', Float, nullable=False),
+    Column('czones_x', Float, nullable=False),
+    Column('exppar_x', Float, nullable=False),
+    Column('crest_y', Float, nullable=False),
+    Column('czones_y', Float, nullable=False),
+    Column('exppar_y', Float, nullable=False),
 )
 
-meta.create_all(engine)
+def create_tables():
+    '''Create tables at the database'''
+    meta.create_all(engine)

@@ -15,6 +15,7 @@ mulandweb_memfile_max = int(os.getenv('MULANDWEB_MEMFILE_MAX', 5 * 1024 * 1024))
 
 # Database
 db_url = os.getenv('MULAND_DB_URL', 'postgresql://gis:gis@localhost/gis')
+db_prefix = os.getenv('MULAND_DB_PREFIX', '')
 
 try:
     from mulandlocal import *
