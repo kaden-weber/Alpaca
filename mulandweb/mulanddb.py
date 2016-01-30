@@ -1,6 +1,6 @@
 # coding: utf-8
 # pylint: disable=invalid-name,bad-continuation,line-too-long
-'''Implements MulandWeb's database access interfaces'''
+'''Implements MulandWeb\'s database access interfaces'''
 
 import csv
 from itertools import zip_longest
@@ -44,20 +44,68 @@ class MulandDB:
             assert isinstance(loc['lnglat'][0], (int, float))
             assert isinstance(loc['lnglat'][1], (int, float))
 
+            loc_overrides = {key: value for key, value in loc.items()
+                             if key not in ['lnglat', 'units']}
             _location = {'location_id': len(_locations),
                          'lng': loc['lnglat'][0],
-                         'lat': loc['lnglat'][1]}
+                         'lat': loc['lnglat'][1],
+                         'overrides': loc_overrides}
             _locations.append(_location)
 
             for unit in loc['units']:
+                unit_overrides = {key: value for key, value in unit.items()
+                                  if key not in ['type']}
                 _unit = {'unit_id': len(_units),
                          'location': _location,
-                         'types_id': unit['type']}
+                         'types_id': unit['type'],
+                         'overrides': unit_overrides}
                 _units.append(_unit)
 
         self.models_id = row[0]
         self.units = _units
         self.locations = _locations
+
+    def _apply_overrides(self, data):
+        '''Override data from db with values provided by user'''
+        header = data.header
+        if 'I_IDX' not in header and 'V_IDX' not in header:
+            return
+
+        records = data.records
+        header_idx = {key.upper(): index
+                      for key, index in zip(header, range(len(header)))}
+
+        # if there is no type, iterate over zones
+        if 'V_IDX' not in header:
+            for record, loc in zip(records, self.locations):
+                print(loc['overrides'])
+                for key, value in loc['overrides'].items():
+                    if not isinstance(value, (int, float)):
+                        continue
+                    key = key.upper()
+                    if key[1:] == '_IDX' or key[:2] == 'ID':
+                        continue
+                    try:
+                        record[header_idx[key]] = value
+                    except KeyError:
+                        continue
+            return
+
+        # otherwise, operate over units
+        for record, unit in zip(records, self.units):
+            overrides = unit['location']['overrides']
+            overrides.update(unit['overrides'])
+            for key, value in overrides.items():
+                if not isinstance(value, (int, float)):
+                    continue
+                key = key.upper()
+                if key[1:] == '_IDX' or key[:2] == 'ID':
+                    continue
+                try:
+                    idx = header_idx[key]
+                except KeyError:
+                    continue
+                record[idx] = value
 
     def get(self):
         '''Get data for Muland'''
@@ -68,6 +116,8 @@ class MulandDB:
         zone_map, zones_records = self._get_zones()
         data['zones'] = MulandData(header=['I_IDX'] + headers['zones_header'],
                                    records=zones_records)
+        self._apply_overrides(data['zones'])
+
         locations = self.locations
         for location_id, zones_id in zone_map:
             locations[location_id]['zones_id'] = zones_id
@@ -77,18 +127,21 @@ class MulandDB:
             header=['IDAGENT', 'IDMARKET', 'IDAGGRA', 'UPPERBB'] + headers['agents_header'],
             records=self._get_agents_records()
         )
+        self._apply_overrides(data['agents'])
 
         # agents_zones
         data['agents_zones'] = MulandData(
             header=['H_IDX', 'I_IDX', 'ACC', 'P_LN_ATT'] + headers['agents_zones_header'],
             records=self._get_agents_zones_records()
         )
+        self._apply_overrides(data['agents_zones'])
 
         # bids_adjustments
         data['bids_adjustments'] = MulandData(
             header=['H_IDX', 'V_IDX', 'I_IDX', 'BIDADJ'],
             records=self._get_bids_adjustments_records()
         )
+        self._apply_overrides(data['bids_adjustments'])
 
         # bids_functions
         data['bids_functions'] = MulandData(
@@ -97,30 +150,35 @@ class MulandDB:
                     'CREST_Y', 'CACC_Y', 'CZONES_Y', 'EXPPAR_Y'],
             records=self._get_bids_functions_records()
         )
+        self._apply_overrides(data['bids_functions'])
 
         # demand
         data['demand'] = MulandData(
             header=['H_IDX', 'DEMAND'],
             records=self._get_demand_records()
         )
+        self._apply_overrides(data['demand'])
 
         # demand_exogenous_cutoff
         data['demand_exogenous_cutoff'] = MulandData(
             header=['H_IDX', 'V_IDX', 'I_IDX', 'DCUTOFF'],
             records=self._get_demand_exogenous_cutoff_records()
         )
+        self._apply_overrides(data['demand_exogenous_cutoff'])
 
         # real_estates_zones
         data['real_estates_zones'] = MulandData(
             header=['V_IDX', 'I_IDX', 'M_IDX'] + headers['real_estates_zones_header'],
             records=self._get_real_estates_zones()
         )
+        self._apply_overrides(data['real_estates_zones'])
 
         # rent_adjustments
         data['rent_adjustments'] = MulandData(
             header=['V_IDX', 'I_IDX', 'RENTADJ'],
             records=self._get_rent_adjustments()
         )
+        self._apply_overrides(data['rent_adjustments'])
 
         # rent_funtions
         data['rent_functions'] = MulandData(
@@ -128,18 +186,21 @@ class MulandDB:
                     'CZONES_X', 'EXPPAR_X', 'CREST_Y', 'CZONES_Y', 'EXPPAR_Y'],
             records=self._get_rent_functions()
         )
+        self._apply_overrides(data['rent_functions'])
 
         # subsidies
         data['subsidies'] = MulandData(
             header=['H_IDX', 'V_IDX', 'I_IDX', 'SUBSIDIES'],
             records=self._get_subsidies()
         )
+        self._apply_overrides(data['subsidies'])
 
         # supply
         data['supply'] = MulandData(
             header=['V_IDX', 'I_IDX', 'NREST'],
             records=self._get_supply()
         )
+        self._apply_overrides(data['supply'])
 
         return data
 
@@ -610,7 +671,7 @@ class ModelImporter:
         while True:
             viter = iter(values)
             partial_values = []
-            for i in range(insert_limit):
+            for _ in range(insert_limit):
                 try:
                     partial_values.append(next(viter))
                 except StopIteration:
