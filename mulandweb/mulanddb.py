@@ -178,7 +178,7 @@ class MulandDB:
              (loc['location_id'], loc['lng'], loc['lat'])
              for loc in self.locations])
 
-        s = (select([text('locs.idx'),
+        s = (select([text('loc.idx'),
                      db_zones.c.id,
                      db_zones.c.data])
             .select_from(db_zones
@@ -262,8 +262,8 @@ class MulandDB:
         db_badj = db.bids_adjustments
 
         values = ', '.join(['(%s, %s, %s)' %
-                            (unit.location['location_id'] + 1,
-                             unit.location['zones_id'],
+                            (unit['location']['location_id'] + 1,
+                             unit['location']['zones_id'],
                              unit['types_id'])
                             for unit in self.units])
 
@@ -337,8 +337,8 @@ class MulandDB:
         db_decutoff = db.demand_exogenous_cutoff
 
         values = ', '.join(['(%s, %s, %s)' %
-                            (unit.location['location_id'] + 1,
-                             unit.location['zones_id'],
+                            (unit['location']['location_id'] + 1,
+                             unit['location']['zones_id'],
                              unit['types_id'])
                             for unit in self.units])
 
@@ -366,8 +366,8 @@ class MulandDB:
         db_rezones = db.real_estates_zones
 
         values = ', '.join(['(%s, %s, %s)' %
-                            (unit.location['location_id'] + 1,
-                             unit.location['zones_id'],
+                            (unit['location']['location_id'] + 1,
+                             unit['location']['zones_id'],
                              unit['types_id'])
                             for unit in self.units])
 
@@ -399,8 +399,8 @@ class MulandDB:
         db_rentadj = db.rent_adjustments
 
         values = ', '.join(['(%s, %s, %s)' %
-                            (unit.location['location_id'] + 1,
-                             unit.location['zones_id'],
+                            (unit['location']['location_id'] + 1,
+                             unit['location']['zones_id'],
                              unit['types_id'])
                             for unit in self.units])
 
@@ -452,8 +452,8 @@ class MulandDB:
         db_subsidies = db.subsidies
 
         values = ', '.join(['(%s, %s, %s)' %
-                            (unit.location['location_id'] + 1,
-                             unit.location['zones_id'],
+                            (unit['location']['location_id'] + 1,
+                             unit['location']['zones_id'],
                              unit['types_id'])
                             for unit in self.units])
 
@@ -481,8 +481,8 @@ class MulandDB:
         db_supply = db.supply
 
         values = ', '.join(['(%s, %s, %s)' %
-                            (unit.location['location_id'] + 1,
-                             unit.location['zones_id'],
+                            (unit['location']['location_id'] + 1,
+                             unit['location']['zones_id'],
                              unit['types_id'])
                             for unit in self.units])
 
