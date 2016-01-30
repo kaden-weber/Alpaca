@@ -504,7 +504,9 @@ class MulandDB:
 class ModelImporter:
     '''Import models into the database'''
     # pylint: disable=too-few-public-methods,too-many-instance-attributes,no-value-for-parameter
-    def __init__(self, name, srid=4326):
+    _insert_limit = 3000 # how many rows will be inserted at once
+
+    def __init__(self, name, srid=4326, verbose=False):
         self.name = name
         self.zones_csv = '%s/zones.csv' % name
         self.agents_csv = '%s/agents.csv' % name
@@ -521,6 +523,7 @@ class ModelImporter:
         self.shapefile = '%s/%s.shp' % (name, name)
         self.models_id = None
         self.srid = srid
+        self.verbose = verbose
 
     def import_model(self):
         '''Run all the steps to import a model'''
@@ -599,6 +602,29 @@ class ModelImporter:
 
         return zone_wkt
 
+    def _insert_with_limit(self, table, values):
+        '''Insert values into table respecting limit per query'''
+        verbose = self.verbose
+        insert_limit = self._insert_limit
+        conn = db.engine.connect()
+        while True:
+            viter = iter(values)
+            partial_values = []
+            for i in range(insert_limit):
+                try:
+                    partial_values.append(next(viter))
+                except StopIteration:
+                    break
+            if len(partial_values) == 0:
+                return
+            result = conn.execute(table.insert().values(partial_values))
+            result.close()
+            if verbose is True and len(partial_values) > 0:
+                print('Inserted %d rows into %s' % (len(partial_values),
+                                                    str(table)))
+            if len(partial_values) < insert_limit:
+                return
+
     def db_import_zones(self):
         '''Import zones.csv'''
         assert self.models_id is not None
@@ -606,22 +632,21 @@ class ModelImporter:
         zone_wkt = self._get_zone_shapes()
 
         # Parse zone file
-        values = []
         with open(self.zones_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
-            for row in r:
-                zones_id = int(row[0])
-                data = tuple(row[1:])
-                area = func.ST_Transform(
-                    func.ST_GeomFromText(zone_wkt[int(row[0])], self.srid),
-                    900913)
-                v = {'models_id': self.models_id, 'id': zones_id,
-                     'area': area, 'data': data}
-                values.append(v)
-
-        result = db.engine.execute(db.zones.insert().values(values))
-        result.close()
+            models_id = self.models_id
+            srid = self.srid
+            values = ({
+                'models_id': models_id,
+                'id': int(row[0]),
+                'data': tuple(row[1:]),
+                'area': func.ST_Transform(
+                            func.ST_GeomFromText(zone_wkt[int(row[0])],
+                                                 srid),
+                            900913)
+            } for row in r)
+            self._insert_with_limit(db.zones, values)
 
     def db_import_rent_adjustments(self):
         '''Import rent_adjustments.csv'''
@@ -631,11 +656,10 @@ class ModelImporter:
         with open(self.rent_adjustments_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r)
-            values.extend(({'types_id': int(row[0]), 'zones_id': int(row[1]),
-                            'models_id': self.models_id, 'adjustment': row[2]}
-                           for row in r))
-        result = db.engine.execute(db.rent_adjustments.insert().values(values))
-        result.close()
+            values = ({'types_id': int(row[0]), 'zones_id': int(row[1]),
+                       'models_id': self.models_id, 'adjustment': row[2]}
+                       for row in r)
+            self._insert_with_limit(db.rent_adjustments, values)
 
     def db_import_supply(self):
         '''Import supply.csv'''
@@ -644,13 +668,12 @@ class ModelImporter:
         with open(self.supply_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r)
-            values = [{'types_id': int(row[0]),
+            values = ({'types_id': int(row[0]),
                        'zones_id': int(row[1]),
                        'models_id': self.models_id,
                        'nrest': row[2]}
-                      for row in r]
-        result = db.engine.execute(db.supply.insert().values(values))
-        result.close()
+                      for row in r)
+            self._insert_with_limit(db.supply, values)
 
     def db_import_real_estates_zones(self):
         '''Import real_estates_zones.csv'''
@@ -659,14 +682,13 @@ class ModelImporter:
         with open(self.real_estates_zones_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r)
-            values = [{'models_id': self.models_id,
+            values = ({'models_id': self.models_id,
                        'types_id': int(row[0]),
                        'zones_id': int(row[1]),
                        'markets_id': int(row[2]),
                        'data': tuple(row[3:])}
-                      for row in r]
-        result = db.engine.execute(db.real_estates_zones.insert().values(values))
-        result.close()
+                      for row in r)
+            self._insert_with_limit(db.real_estates_zones, values)
 
     def db_import_agents(self):
         '''Import agents.csv'''
@@ -675,15 +697,14 @@ class ModelImporter:
         with open(self.agents_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
-            values = [{'models_id': self.models_id,
+            values = ({'models_id': self.models_id,
                        'id': row[0],
                        'markets_id': row[1],
                        'aggra_id': row[2],
                        'upperbb': row[3],
                        'data': tuple(row[4:])}
-                      for row in r]
-        result = db.engine.execute(db.agents.insert().values(values))
-        result.close()
+                      for row in r)
+            self._insert_with_limit(db.agents, values)
 
     def db_import_demand(self):
         '''Import demand.csv'''
@@ -692,12 +713,11 @@ class ModelImporter:
         with open(self.demand_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
-            values = [{'models_id': self.models_id,
+            values = ({'models_id': self.models_id,
                        'agents_id': row[0],
                        'demand': row[1]}
-                      for row in r]
-        result = db.engine.execute(db.demand.insert().values(values))
-        result.close()
+                      for row in r)
+            self._insert_with_limit(db.demand, values)
 
     def db_import_subsidies(self):
         '''Import subsidies.csv'''
@@ -706,19 +726,11 @@ class ModelImporter:
         with open(self.subsidies_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
-            counter = 0
-            while True:
-                values = [{'models_id': self.models_id, 'agents_id': row[0],
-                           'types_id': row[1], 'zones_id': row[2],
-                           'subsidies': row[3]}
-                           for row, _ in zip(r, range(5000))]
-                if len(values) == 0:
-                    break
-                result = db.engine.execute(db.subsidies.insert().values(values))
-                result.close()
-                counter += len(values)
-                if len(values) < 5000:
-                    break
+            values = ({'models_id': self.models_id, 'agents_id': row[0],
+                       'types_id': row[1], 'zones_id': row[2],
+                       'subsidies': row[3]}
+                       for row in r)
+            self._insert_with_limit(db.subsidies, values)
 
     def db_import_demand_exogenous_cutoff(self):
         '''Import demand_exogenous_cutoff.csv'''
@@ -727,19 +739,11 @@ class ModelImporter:
         with open(self.demand_exogenous_cutoff_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
-            counter = 0
-            while True:
-                values = [{'models_id': self.models_id, 'agents_id': row[0],
-                           'types_id': row[1], 'zones_id': row[2],
-                           'dcutoff': row[3]}
-                           for row, _ in zip(r, range(5000))]
-                if len(values) == 0:
-                    break
-                result = db.engine.execute(db.demand_exogenous_cutoff.insert().values(values))
-                result.close()
-                counter += len(values)
-                if len(values) < 5000:
-                    break
+            values = ({'models_id': self.models_id, 'agents_id': row[0],
+                       'types_id': row[1], 'zones_id': row[2],
+                       'dcutoff': row[3]}
+                       for row in r)
+            self._insert_with_limit(db.demand_exogenous_cutoff, values)
 
     def db_import_agents_zones(self):
         '''Import agents_zones.csv'''
@@ -748,19 +752,11 @@ class ModelImporter:
         with open(self.agents_zones_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
-            counter = 0
-            while True:
-                values = [{'models_id': self.models_id, 'agents_id': row[0],
-                           'zones_id': row[1], 'acc': row[2], 'att': row[3],
-                           'data': tuple(row[4:])}
-                          for row, _ in zip(r, range(5000))]
-                if len(values) == 0:
-                    break
-                result = db.engine.execute(db.agents_zones.insert().values(values))
-                result.close()
-                counter += len(values)
-                if len(values) < 5000:
-                    break
+            values = ({'models_id': self.models_id, 'agents_id': row[0],
+                       'zones_id': row[1], 'acc': row[2], 'att': row[3],
+                       'data': tuple(row[4:])}
+                      for row in r)
+            self._insert_with_limit(db.agents_zones, values)
 
     def db_import_bids_adjustments(self):
         '''Import bids_adjustments.csv'''
@@ -769,19 +765,11 @@ class ModelImporter:
         with open(self.bids_adjustments_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
-            counter = 0
-            while True:
-                values = [{'models_id': self.models_id, 'agents_id': row[0],
-                           'types_id': row[1], 'zones_id': row[2],
-                           'bidadj': row[3]}
-                          for row, _ in zip(r, range(5000))]
-                if len(values) == 0:
-                    break
-                result = db.engine.execute(db.bids_adjustments.insert().values(values))
-                result.close()
-                counter += len(values)
-                if len(values) < 5000:
-                    break
+            values = ({'models_id': self.models_id, 'agents_id': row[0],
+                       'types_id': row[1], 'zones_id': row[2],
+                       'bidadj': row[3]}
+                      for row in r)
+            self._insert_with_limit(db.bids_adjustments, values)
 
     def db_import_bids_functions(self):
         '''Import bids_functions.csv'''
@@ -790,24 +778,17 @@ class ModelImporter:
         with open(self.bids_functions_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
-            counter = 0
-            while True:
-                values = [{'models_id': self.models_id, 'markets_id': row[0],
-                           'aggra_id': row[1], 'idattrib': row[2],
-                           'lineapar': row[3], 'cagent_x': row[4],
-                           'crest_x': row[5], 'cacc_x': row[6],
-                           'czones_x': row[7], 'exppar_x': row[8],
-                           'cagent_y': row[9], 'crest_y': row[10],
-                           'cacc_y': row[11], 'czones_y': row[12],
-                           'exppar_y': row[13]}
-                          for row, _ in zip(r, range(5000))]
-                if len(values) == 0:
-                    break
-                result = db.engine.execute(db.bids_functions.insert().values(values))
-                result.close()
-                counter += len(values)
-                if len(values) < 5000:
-                    break
+            values = ({'models_id': self.models_id, 'markets_id': row[0],
+                       'aggra_id': row[1], 'idattrib': row[2],
+                       'lineapar': row[3], 'cagent_x': row[4],
+                       'crest_x': row[5], 'cacc_x': row[6],
+                       'czones_x': row[7], 'exppar_x': row[8],
+                       'cagent_y': row[9], 'crest_y': row[10],
+                       'cacc_y': row[11], 'czones_y': row[12],
+                       'exppar_y': row[13]}
+                      for row in r)
+            self._insert_with_limit(db.bids_functions, values)
+
 
     def db_import_rent_functions(self):
         '''Import rent_functions.csv'''
@@ -816,12 +797,11 @@ class ModelImporter:
         with open(self.rent_functions_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
-            values = [{'models_id': self.models_id, 'markets_id': row[0],
+            values = ({'models_id': self.models_id, 'markets_id': row[0],
                        'idattrib': row[1], 'scalepar': row[2],
                        'lineapar': row[3], 'crest_x': row[4],
                        'czones_x': row[5], 'exppar_x': row[6],
                        'crest_y': row[7], 'czones_y': row[8],
                        'exppar_y': row[9]}
-                      for row in r]
-            result = db.engine.execute(db.rent_functions.insert().values(values))
-            result.close()
+                      for row in r)
+            self._insert_with_limit(db.rent_functions, values)
