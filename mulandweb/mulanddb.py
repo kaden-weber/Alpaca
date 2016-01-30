@@ -38,22 +38,26 @@ class MulandDB:
         if result is None:
             raise ModelNotFound
 
-        points = []
-        i = 0
+        _units = []
+        _locations = []
         for loc in locations:
             assert isinstance(loc['lnglat'][0], (int, float))
             assert isinstance(loc['lnglat'][1], (int, float))
-            for unit in loc['units']:
-                point = {'id': i,
+
+            _location = {'location_id': len(_locations),
                          'lng': loc['lnglat'][0],
-                         'lat': loc['lnglat'][1],
+                         'lat': loc['lnglat'][1]}
+            _locations.append(_location)
+
+            for unit in loc['units']:
+                _unit = {'unit_id': len(_units),
+                         'location': _location,
                          'types_id': unit['type']}
-                points.append(point)
-                i += 1
+                _units.append(_unit)
 
         self.models_id = row[0]
-        self.points = points
-        self.loc = locations
+        self.units = _units
+        self.locations = _locations
 
     def get(self):
         '''Get data for Muland'''
@@ -64,8 +68,9 @@ class MulandDB:
         zone_map, zones_records = self._get_zones()
         data['zones'] = MulandData(header=['I_IDX'] + headers['zones_header'],
                                    records=zones_records)
-        for point_idx, zones_id in zone_map:
-            self.points[point_idx]['zones_id'] = zones_id
+        locations = self.locations
+        for location_id, zones_id in zone_map:
+            locations[location_id]['zones_id'] = zones_id
 
         # agents
         data['agents'] = MulandData(
@@ -170,17 +175,17 @@ class MulandDB:
 
         values = ', '.join(
             ['(%s, ST_Transform(ST_SetSRID(ST_Point(%s, %s), 4326), 900913))' %
-             (point['id'], point['lng'], point['lat'])
-             for point in self.points])
+             (loc['location_id'], loc['lng'], loc['lat'])
+             for loc in self.locations])
 
-        s = (select([text('points.idx '),
+        s = (select([text('locs.idx'),
                      db_zones.c.id,
                      db_zones.c.data])
             .select_from(db_zones
-                .join(text('(VALUES %s) AS points (idx, geom) ' % values),
-                      func.ST_Contains(db_zones.c.area, text('points.geom'))))
+                .join(text('(VALUES %s) AS locs (id, geom) ' % values),
+                      func.ST_Contains(db_zones.c.area, text('locs.geom'))))
             .where(db_zones.c.models_id == self.models_id)
-            .order_by(text('points.idx')))
+            .order_by(text('locs.id')))
 
         result = self.conn.execute(s)
         zone_map = []
@@ -225,17 +230,18 @@ class MulandDB:
         '''Get agents records'''
         db_azones = db.agents_zones
 
-        values = ', '.join(['(%s, %s)' % (point['id'] + 1, point['zones_id'])
-                            for point in self.points])
+        values = ', '.join(['(%s, %s)' %
+                            (location['location_id'] + 1, location['zones_id'])
+                            for location in self.locations])
 
         s = (select([db_azones.c.agents_id,
-                     text('points.idx'),
+                     text('locs.id'),
                      db_azones.c.acc,
                      db_azones.c.att,
                      db_azones.c.data])
             .select_from(db_azones
-                .join(text('(VALUES %s) AS points (idx, zones_id) ' % values),
-                      db_azones.c.zones_id == text('points.zones_id')))
+                .join(text('(VALUES %s) AS locs (id, zones_id) ' % values),
+                      db_azones.c.zones_id == text('locs.zones_id')))
             .where(db_azones.c.models_id == self.models_id))
 
         result = self.conn.execute(s)
@@ -256,17 +262,19 @@ class MulandDB:
         db_badj = db.bids_adjustments
 
         values = ', '.join(['(%s, %s, %s)' %
-            (point['id'] + 1, point['zones_id'], point['types_id'])
-            for point in self.points])
+                            (unit.location['location_id'] + 1,
+                             unit.location['zones_id'],
+                             unit['types_id'])
+                            for unit in self.units])
 
         s = (select([db_badj.c.agents_id,
                      db_badj.c.types_id,
-                     text('points.idx'),
+                     text('units.lid'),
                      db_badj.c.bidadj])
             .select_from(db_badj
-                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
-                      and_(db_badj.c.zones_id == text('points.zones_id'),
-                           db_badj.c.types_id == text('points.types_id'))))
+                .join(text('(VALUES %s) AS units (lid, zones_id, types_id) ' % values),
+                      and_(db_badj.c.zones_id == text('units.zones_id'),
+                           db_badj.c.types_id == text('units.types_id'))))
             .where(db_badj.c.models_id == self.models_id))
 
         result = self.conn.execute(s)
@@ -329,17 +337,19 @@ class MulandDB:
         db_decutoff = db.demand_exogenous_cutoff
 
         values = ', '.join(['(%s, %s, %s)' %
-            (point['id'] + 1, point['zones_id'], point['types_id'])
-            for point in self.points])
+                            (unit.location['location_id'] + 1,
+                             unit.location['zones_id'],
+                             unit['types_id'])
+                            for unit in self.units])
 
         s = (select([db_decutoff.c.agents_id,
                      db_decutoff.c.types_id,
-                     text('points.idx'),
+                     text('units.lid'),
                      db_decutoff.c.dcutoff])
             .select_from(db_decutoff
-                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
-                      and_(db_decutoff.c.zones_id == text('points.zones_id'),
-                           db_decutoff.c.types_id == text('points.types_id'))))
+                .join(text('(VALUES %s) AS units (lid, zones_id, types_id) ' % values),
+                      and_(db_decutoff.c.zones_id == text('units.zones_id'),
+                           db_decutoff.c.types_id == text('units.types_id'))))
             .where(db_decutoff.c.models_id == self.models_id))
 
         result = self.conn.execute(s)
@@ -356,17 +366,19 @@ class MulandDB:
         db_rezones = db.real_estates_zones
 
         values = ', '.join(['(%s, %s, %s)' %
-            (point['id'] + 1, point['zones_id'], point['types_id'])
-            for point in self.points])
+                            (unit.location['location_id'] + 1,
+                             unit.location['zones_id'],
+                             unit['types_id'])
+                            for unit in self.units])
 
         s = (select([db_rezones.c.types_id,
-                     text('points.idx'),
+                     text('units.lid'),
                      db_rezones.c.markets_id,
                      db_rezones.c.data])
             .select_from(db_rezones
-                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
-                      and_(db_rezones.c.zones_id == text('points.zones_id'),
-                           db_rezones.c.types_id == text('points.types_id'))))
+                .join(text('(VALUES %s) AS units (lid, zones_id, types_id) ' % values),
+                      and_(db_rezones.c.zones_id == text('units.zones_id'),
+                           db_rezones.c.types_id == text('units.types_id'))))
             .where(db_rezones.c.models_id == self.models_id))
 
         result = self.conn.execute(s)
@@ -387,16 +399,18 @@ class MulandDB:
         db_rentadj = db.rent_adjustments
 
         values = ', '.join(['(%s, %s, %s)' %
-            (point['id'] + 1, point['zones_id'], point['types_id'])
-            for point in self.points])
+                            (unit.location['location_id'] + 1,
+                             unit.location['zones_id'],
+                             unit['types_id'])
+                            for unit in self.units])
 
         s = (select([db_rentadj.c.types_id,
-                     text('points.idx'),
+                     text('units.lid'),
                      db_rentadj.c.adjustment])
             .select_from(db_rentadj
-                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
-                      and_(db_rentadj.c.zones_id == text('points.zones_id'),
-                           db_rentadj.c.types_id == text('points.types_id'))))
+                .join(text('(VALUES %s) AS units (lid, zones_id, types_id) ' % values),
+                      and_(db_rentadj.c.zones_id == text('units.zones_id'),
+                           db_rentadj.c.types_id == text('units.types_id'))))
             .where(db_rentadj.c.models_id == self.models_id))
 
         result = self.conn.execute(s)
@@ -438,17 +452,19 @@ class MulandDB:
         db_subsidies = db.subsidies
 
         values = ', '.join(['(%s, %s, %s)' %
-            (point['id'] + 1, point['zones_id'], point['types_id'])
-            for point in self.points])
+                            (unit.location['location_id'] + 1,
+                             unit.location['zones_id'],
+                             unit['types_id'])
+                            for unit in self.units])
 
         s = (select([db_subsidies.c.agents_id,
                      db_subsidies.c.types_id,
-                     text('points.idx'),
+                     text('unit.lid'),
                      db_subsidies.c.subsidies])
             .select_from(db_subsidies
-                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
-                      and_(db_subsidies.c.zones_id == text('points.zones_id'),
-                           db_subsidies.c.types_id == text('points.types_id'))))
+                .join(text('(VALUES %s) AS unit (lid, zones_id, types_id) ' % values),
+                      and_(db_subsidies.c.zones_id == text('unit.zones_id'),
+                           db_subsidies.c.types_id == text('unit.types_id'))))
             .where(db_subsidies.c.models_id == self.models_id))
 
         result = self.conn.execute(s)
@@ -465,16 +481,18 @@ class MulandDB:
         db_supply = db.supply
 
         values = ', '.join(['(%s, %s, %s)' %
-            (point['id'] + 1, point['zones_id'], point['types_id'])
-            for point in self.points])
+                            (unit.location['location_id'] + 1,
+                             unit.location['zones_id'],
+                             unit['types_id'])
+                            for unit in self.units])
 
         s = (select([db_supply.c.types_id,
-                     text('points.idx'),
+                     text('unit.lid'),
                      db_supply.c.nrest])
             .select_from(db_supply
-                .join(text('(VALUES %s) AS points (idx, zones_id, types_id) ' % values),
-                      and_(db_supply.c.zones_id == text('points.zones_id'),
-                           db_supply.c.types_id == text('points.types_id'))))
+                .join(text('(VALUES %s) AS unit (lid, zones_id, types_id) ' % values),
+                      and_(db_supply.c.zones_id == text('unit.zones_id'),
+                           db_supply.c.types_id == text('unit.types_id'))))
             .where(db_supply.c.models_id == self.models_id))
 
         result = self.conn.execute(s)
