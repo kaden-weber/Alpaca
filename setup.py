@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='mulandweb',
-      version='0.3',
+      version='0.4',
       description='Web Interface for the Muland Application',
       url='https://bitbucket.org/leandropls/mulandweb',
       author='Leandro Pereira de Lima e Silva',

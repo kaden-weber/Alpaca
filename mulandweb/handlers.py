@@ -35,7 +35,6 @@ def post_handler(model):
     if not isinstance(locations, list):
         raise bottle.HTTPError(400, "'loc' isn't an array")
 
-    dbloc = []
     for loc in locations:
         if 'lnglat' not in loc:
             raise bottle.HTTPError(400, "'lnglat' not in 'loc' items")
@@ -59,13 +58,9 @@ def post_handler(model):
             if not isinstance(unit['type'], (int, float)):
                 raise bottle.HTTPError(400, "'type' isn't a number")
 
-        dbloc.append({'lnglat': lnglat,
-                      'units': [{'type': unit['type']}
-                                for unit in units],})
-
     # Get data from MulandDB
     try:
-        mudata = MulandDB(model, dbloc).get()
+        mudata = MulandDB(model, locations).get()
     except ModelNotFound:
         raise bottle.HTTPError(404)
 

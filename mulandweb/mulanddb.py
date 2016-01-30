@@ -83,7 +83,7 @@ class MulandDB:
                     if not isinstance(value, (int, float)):
                         continue
                     key = key.upper()
-                    if key[1:] == '_IDX' or key[:2] == 'ID':
+                    if key[:-3] == '_IDX' or key[:2] == 'ID':
                         continue
                     try:
                         record[header_idx[key]] = value
@@ -99,7 +99,7 @@ class MulandDB:
                 if not isinstance(value, (int, float)):
                     continue
                 key = key.upper()
-                if key[1:] == '_IDX' or key[:2] == 'ID':
+                if key[:-3] == '_IDX' or key[:2] == 'ID':
                     continue
                 try:
                     idx = header_idx[key]
