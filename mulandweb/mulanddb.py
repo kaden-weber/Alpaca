@@ -178,7 +178,7 @@ class MulandDB:
              (loc['location_id'], loc['lng'], loc['lat'])
              for loc in self.locations])
 
-        s = (select([text('loc.idx'),
+        s = (select([text('locs.id'),
                      db_zones.c.id,
                      db_zones.c.data])
             .select_from(db_zones
