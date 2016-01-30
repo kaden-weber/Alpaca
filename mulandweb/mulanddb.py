@@ -601,7 +601,8 @@ class ModelImporter:
 
     def db_import_zones(self):
         '''Import zones.csv'''
-        assert self.models_id
+        assert self.models_id is not None
+
         zone_wkt = self._get_zone_shapes()
 
         # Parse zone file
@@ -624,6 +625,8 @@ class ModelImporter:
 
     def db_import_rent_adjustments(self):
         '''Import rent_adjustments.csv'''
+        assert self.models_id is not None
+
         values = []
         with open(self.rent_adjustments_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
@@ -636,6 +639,8 @@ class ModelImporter:
 
     def db_import_supply(self):
         '''Import supply.csv'''
+        assert self.models_id is not None
+
         with open(self.supply_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r)
@@ -649,6 +654,8 @@ class ModelImporter:
 
     def db_import_real_estates_zones(self):
         '''Import real_estates_zones.csv'''
+        assert self.models_id is not None
+
         with open(self.real_estates_zones_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r)
@@ -663,6 +670,8 @@ class ModelImporter:
 
     def db_import_agents(self):
         '''Import agents.csv'''
+        assert self.models_id is not None
+
         with open(self.agents_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
@@ -678,6 +687,8 @@ class ModelImporter:
 
     def db_import_demand(self):
         '''Import demand.csv'''
+        assert self.models_id is not None
+
         with open(self.demand_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
@@ -690,6 +701,8 @@ class ModelImporter:
 
     def db_import_subsidies(self):
         '''Import subsidies.csv'''
+        assert self.models_id is not None
+
         with open(self.subsidies_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
@@ -709,6 +722,8 @@ class ModelImporter:
 
     def db_import_demand_exogenous_cutoff(self):
         '''Import demand_exogenous_cutoff.csv'''
+        assert self.models_id is not None
+
         with open(self.demand_exogenous_cutoff_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
@@ -728,6 +743,8 @@ class ModelImporter:
 
     def db_import_agents_zones(self):
         '''Import agents_zones.csv'''
+        assert self.models_id is not None
+
         with open(self.agents_zones_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
@@ -747,6 +764,8 @@ class ModelImporter:
 
     def db_import_bids_adjustments(self):
         '''Import bids_adjustments.csv'''
+        assert self.models_id is not None
+
         with open(self.bids_adjustments_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
@@ -766,6 +785,8 @@ class ModelImporter:
 
     def db_import_bids_functions(self):
         '''Import bids_functions.csv'''
+        assert self.models_id is not None
+
         with open(self.bids_functions_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
@@ -790,6 +811,8 @@ class ModelImporter:
 
     def db_import_rent_functions(self):
         '''Import rent_functions.csv'''
+        assert self.models_id is not None
+
         with open(self.rent_functions_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
