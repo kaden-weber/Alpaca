@@ -31,11 +31,11 @@ def post_handler(model): # pylint: disable=too-many-branches
     if mime == 'application/json':
         data_in = bottle.request.json
     elif mime == 'application/xml' or mime == 'text/xml':
-        if 'charset=' in ctype and 'charset=utf-8' not in ctype:
-            raise bottle.HTTPError(400, 'Only UTF-8 is allowed as charset '
+        if 'charset=utf-8' not in ctype:
+            raise bottle.HTTPError(400, 'Specify charset=utf-8 for '
                                         'for this MIME type.')
-        loc = xmlparser.load(_utf8reader(bottle.request.body)) # pylint: disable=redefined-variable-type
-        data_in = {'loc': loc}
+        loc = xmlparser.load(_utf8reader(bottle.request.body))
+        data_in = {'loc': loc} # pylint: disable=redefined-variable-type
     else:
         raise bottle.HTTPError(400, 'Invalid Content-Type')
 
