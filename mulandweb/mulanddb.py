@@ -78,7 +78,6 @@ class MulandDB:
         # if there is no type, iterate over zones
         if 'V_IDX' not in header:
             for record, loc in zip(records, self.locations):
-                print(loc['overrides'])
                 for key, value in loc['overrides'].items():
                     if not isinstance(value, (int, float)):
                         continue
