@@ -19,7 +19,7 @@ _model_re = re.compile('[a-z]')
 _utf8reader = codecs.getreader('utf-8')
 
 @app.post('/<model>')
-def post_handler(model): # pylint: disable=too-many-branches
+def post_handler(model): # pylint: disable=too-many-branches,too-many-statements
     '''Handles POST requests to server'''
     # Validate model name
     if _model_re.match(model) is None:
@@ -30,12 +30,14 @@ def post_handler(model): # pylint: disable=too-many-branches
     mime = ctype.split(';')[0]
     if mime == 'application/json':
         data_in = bottle.request.json
+        output_mime = 'json'
     elif mime == 'application/xml' or mime == 'text/xml':
         if 'charset=utf-8' not in ctype:
             raise bottle.HTTPError(400, 'Specify charset=utf-8 for '
                                         'for this MIME type.')
         loc = xmlparser.load(_utf8reader(bottle.request.body))
         data_in = {'loc': loc} # pylint: disable=redefined-variable-type
+        output_mime = 'xml'
     else:
         raise bottle.HTTPError(400, 'Invalid Content-Type')
 
@@ -90,5 +92,9 @@ def post_handler(model): # pylint: disable=too-many-branches
         raise bottle.HTTPError(500, exception=e)
 
     # Send response
-    bottle.response.headers['Content-Type'] = 'application/json'
-    return json.dumps(mu.output_data)
+    if output_mime == 'json':
+        bottle.response.headers['Content-Type'] = 'application/json'
+        return json.dumps(mu.output_data)
+    elif output_mime == 'xml':
+        bottle.response.headers['Content-Type'] = 'application/xml; charset=utf-8'
+        return xmlparser.dumps(mu.output_data)
