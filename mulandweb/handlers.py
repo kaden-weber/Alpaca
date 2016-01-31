@@ -1,27 +1,44 @@
 #!/usr/bin/env python3
 # coding: utf-8
+# pylint: disable=invalid-name,
+'''Provides request handlers for MulandWeb'''
 
-import bottle
 import re
 import json
+import codecs
+import bottle
 
 from .muland import Muland, MulandRunError
 from .mulanddb import MulandDB, ModelNotFound
+from . import xmlparser
 from . import app
 
 __all__ = ['post_handler']
 
 _model_re = re.compile('[a-z]')
+_utf8reader = codecs.getreader('utf-8')
 
 @app.post('/<model>')
-def post_handler(model):
+def post_handler(model): # pylint: disable=too-many-branches
     '''Handles POST requests to server'''
     # Validate model name
     if _model_re.match(model) is None:
         raise bottle.HTTPError(404)
 
+    # Extract data acoording to Content-Type
+    ctype = bottle.request.headers['Content-Type'].lower() # pylint: disable=unsubscriptable-object
+    mime = ctype.split(';')[0]
+    if mime == 'application/json':
+        data_in = bottle.request.json
+    elif mime == 'application/xml' or mime == 'text/xml':
+        if 'charset=' in ctype and 'charset=utf-8' not in ctype:
+            raise bottle.HTTPError(400, 'Only UTF-8 is allowed as charset '
+                                        'for this MIME type.')
+        data_in = xmlparser.load(_utf8reader(bottle.request.body)) # pylint: disable=redefined-variable-type
+    else:
+        raise bottle.HTTPError(400, 'Invalid Content-Type')
+
     # Prepare data
-    data_in = bottle.request.json
     if data_in is None:
         raise bottle.HTTPError(400, 'No input data.')
 
@@ -69,7 +86,7 @@ def post_handler(model):
     try:
         mu.run()
     except MulandRunError as e:
-        raise HTTPError(500, exception=e)
+        raise bottle.HTTPError(500, exception=e)
 
     # Send response
     bottle.response.headers['Content-Type'] = 'application/json'
