@@ -34,7 +34,8 @@ def post_handler(model): # pylint: disable=too-many-branches
         if 'charset=' in ctype and 'charset=utf-8' not in ctype:
             raise bottle.HTTPError(400, 'Only UTF-8 is allowed as charset '
                                         'for this MIME type.')
-        data_in = xmlparser.load(_utf8reader(bottle.request.body)) # pylint: disable=redefined-variable-type
+        loc = xmlparser.load(_utf8reader(bottle.request.body)) # pylint: disable=redefined-variable-type
+        data_in = {'loc': loc}
     else:
         raise bottle.HTTPError(400, 'Invalid Content-Type')
 
