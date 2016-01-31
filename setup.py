@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='mulandweb',
-      version='0.4',
+      version='0.5',
       description='Web Interface for the Muland Application',
       url='https://bitbucket.org/leandropls/mulandweb',
       author='Leandro Pereira de Lima e Silva',
@@ -18,5 +18,6 @@ setup(name='mulandweb',
         'SQLAlchemy',
         'pyshp',
         'shapely',
+        'defusedxml',
       ],
       zip_safe=False)
