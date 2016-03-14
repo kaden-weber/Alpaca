@@ -120,6 +120,16 @@ class MulandDB:
         locations = self.locations
         for location_id, zones_id in zone_map:
             locations[location_id]['zones_id'] = zones_id
+        del locations
+
+        # Remove locations not contained by any zones
+        outsider_locids = {location['location_id']
+                           for location in self.locations
+                           if 'zones_id' not in location}
+        self.locations = [loc for loc in self.locations
+                          if loc['location_id'] not in outsider_locids]
+        self.units = [unit for unit in self.units
+                      if unit['location']['location_id'] not in outsider_locids]
 
         # agents
         data['agents'] = MulandData(
@@ -294,6 +304,9 @@ class MulandDB:
                             (location['location_id'] + 1, location['zones_id'])
                             for location in self.locations])
 
+        if not values:
+            return []
+
         s = (select([db_azones.c.agents_id,
                      text('locs.id'),
                      db_azones.c.acc,
@@ -326,6 +339,9 @@ class MulandDB:
                              unit['location']['zones_id'],
                              unit['types_id'])
                             for unit in self.units])
+
+        if not values:
+            return []
 
         s = (select([db_badj.c.agents_id,
                      db_badj.c.types_id,
@@ -402,6 +418,9 @@ class MulandDB:
                              unit['types_id'])
                             for unit in self.units])
 
+        if not values:
+            return []
+
         s = (select([db_decutoff.c.agents_id,
                      db_decutoff.c.types_id,
                      text('units.lid'),
@@ -430,6 +449,9 @@ class MulandDB:
                              unit['location']['zones_id'],
                              unit['types_id'])
                             for unit in self.units])
+
+        if not values:
+            return []
 
         s = (select([db_rezones.c.types_id,
                      text('units.lid'),
@@ -463,6 +485,9 @@ class MulandDB:
                              unit['location']['zones_id'],
                              unit['types_id'])
                             for unit in self.units])
+
+        if not values:
+            return []
 
         s = (select([db_rentadj.c.types_id,
                      text('units.lid'),
@@ -517,6 +542,9 @@ class MulandDB:
                              unit['types_id'])
                             for unit in self.units])
 
+        if not values:
+            return []
+
         s = (select([db_subsidies.c.agents_id,
                      db_subsidies.c.types_id,
                      text('unit.lid'),
@@ -545,6 +573,9 @@ class MulandDB:
                              unit['location']['zones_id'],
                              unit['types_id'])
                             for unit in self.units])
+
+        if not values:
+            return []
 
         s = (select([db_supply.c.types_id,
                      text('unit.lid'),
