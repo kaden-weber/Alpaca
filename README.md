@@ -39,7 +39,7 @@ Then, do the following:
  cd mulandweb/
  virtualenv -p `which python3` env
  . env/bin/activate
- pip install ../leandropls-mulandweb-0bca3b77fa13.tar.gz
+ pip install https://github.com/ManhanGroup/Alpaca/archive/master.zip
  ```
  5. Create mulandweb/bin directory and copy mu-land into it as muland
  6. Initialize tables at the database using ```python -m mulandweb -c```
