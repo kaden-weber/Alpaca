@@ -1,3 +1,8 @@
+## Test script to run mu-Land (with SCAG Urban Footprint case study)
+## by: Colby M Brown, AICP PTP
+## Principal and Founder, Manhan Group LLC
+## e-mail: colby@manhangroup.com
+
 #standard library imports
 import sys, os, csv
 import subprocess, shutil
