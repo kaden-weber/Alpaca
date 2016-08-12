@@ -14,7 +14,7 @@ The server-side software (mu-land and muLandWeb) has been tested using Linux, sp
 
 The mu-land core uses Boost 1.54 libraries.
 
-PostGreSQL is used for back-end database management and spatial operations involving PostGIS.
+PostgreSQL is used for back-end database management and spatial operations involving PostGIS.
 
 A bid-rent land use model is required in order to apply the framework.  Regional planning agencies using the Cube Land software distributed by Citilabs (see http://www.citilabs.com/) may have existing models in a format very similar to that required by mu-land.  Manhan Group, LLC (http://manhangroup.com/) has developed many of these models and provides related consulting services.
 
