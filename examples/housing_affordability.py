@@ -1,3 +1,8 @@
+## Test script to compute housing affordability metrics (with FresnoCOG Envision Tomorrow case study)
+## by: Colby M Brown, AICP PTP
+## Principal and Founder, Manhan Group LLC
+## e-mail: colby@manhangroup.com
+
 import csv, sys, os
 
 rent_file = r'outputs\rents.csv'
