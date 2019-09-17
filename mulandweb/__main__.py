@@ -30,6 +30,10 @@ def create_tables():
     from . import db
     db.create_tables()
 
+def delete_model(name):
+    from . import db
+    db.delete_tables(name)
+    
 def main():
     '''Main function'''
     parser = argparse.ArgumentParser(prog='mulandweb', description='MulandWeb')
@@ -41,6 +45,9 @@ def main():
                         help="import model 'model_name' with name 'model_name'")
     action.add_argument('-c', '--create-tables', action='store_true',
                         help='create mulandweb tables at the database.')
+    action.add_argument('-d', '--delete', dest='delete_name',
+                        metavar='model_name', type=str, nargs='?', default=None,
+                        help="delete model 'model_name' with name 'model_name'")
     parser.add_argument('--import-srid', dest='srid',
                         metavar='srid', type=int, nargs='?', default=4326,
                         help='specify SRID used in shape files when importing')
@@ -54,8 +61,12 @@ def main():
         import_model(args.import_name, srid=args.srid)
         return
 
+    if args.delete_name:
+        delete_model(args.delete_name)
+        return
+
     if args.create_tables:
         create_tables()
         return
-
+      
 main()

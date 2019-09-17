@@ -619,6 +619,8 @@ class ModelImporter:
     def import_model(self):
         '''Run all the steps to import a model'''
         self.models_id = self.db_create_model()
+        # self.db_import_bids_functions()
+        # self.db_import_rent_functions()
         self.db_import_zones()
         self.db_import_rent_adjustments()
         self.db_import_supply()
@@ -652,16 +654,33 @@ class ModelImporter:
             real_estates_zones_header = tuple(next(reader)[3:])
 
         # Insert model
-        s = db.models.insert().values(
-            name=self.name,
-            zones_header=zones_header,
-            agents_header=agents_header,
-            agents_zones_header=agents_zones_header,
-            real_estates_zones_header=real_estates_zones_header
-        ).returning(db.models.c.id)
 
-        result = db.engine.execute(s)
-        models_id = result.fetchone()[0]
+        try:
+            s = db.models.insert().values(
+                name=self.name,
+                zones_header=zones_header,
+                agents_header=agents_header,
+                agents_zones_header=agents_zones_header,
+                real_estates_zones_header=real_estates_zones_header
+            ).returning(db.models.c.id)
+            result = db.engine.execute(s)
+            models_id = result.fetchone()[0]
+        except:
+            
+            from . import db
+            print ("Model Already Present. Updating..")
+            db.delete_tables(self.name)
+
+            s = db.models.insert().values(
+                name=self.name,
+                zones_header=zones_header,
+                agents_header=agents_header,
+                agents_zones_header=agents_zones_header,
+                real_estates_zones_header=real_estates_zones_header
+            ).returning(db.models.c.id) #"""
+
+            result = db.engine.execute(s)
+            models_id = result.fetchone()[0]
         result.close()
 
         return models_id
@@ -712,7 +731,7 @@ class ModelImporter:
             result.close()
             if verbose is True and len(partial_values) > 0:
                 print('Inserted %d rows into %s' % (len(partial_values),
-                                                    str(table)))
+                                                    str(table)),end="\r")
             if len(partial_values) < insert_limit:
                 return
 
@@ -868,8 +887,10 @@ class ModelImporter:
 
         with open(self.bids_functions_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
+                
             next(r) # skip header
-            values = ({'models_id': self.models_id, 'markets_id': row[0],
+
+            values = ({'id':k,'models_id': self.models_id, 'markets_id': row[0],
                        'aggra_id': row[1], 'idattrib': row[2],
                        'lineapar': row[3], 'cagent_x': row[4],
                        'crest_x': row[5], 'cacc_x': row[6],
@@ -877,7 +898,7 @@ class ModelImporter:
                        'cagent_y': row[9], 'crest_y': row[10],
                        'cacc_y': row[11], 'czones_y': row[12],
                        'exppar_y': row[13]}
-                      for row in r)
+                      for k,row in enumerate(r))
             self._insert_with_limit(db.bids_functions, values)
 
 
@@ -888,11 +909,11 @@ class ModelImporter:
         with open(self.rent_functions_csv) as f:
             r = csv.reader(f, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
             next(r) # skip header
-            values = ({'models_id': self.models_id, 'markets_id': row[0],
+            values = ({'id':k,'models_id': self.models_id, 'markets_id': row[0],
                        'idattrib': row[1], 'scalepar': row[2],
                        'lineapar': row[3], 'crest_x': row[4],
                        'czones_x': row[5], 'exppar_x': row[6],
                        'crest_y': row[7], 'czones_y': row[8],
                        'exppar_y': row[9]}
-                      for row in r)
+                      for k,row in enumerate(r))
             self._insert_with_limit(db.rent_functions, values)

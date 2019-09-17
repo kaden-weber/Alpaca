@@ -8,9 +8,13 @@ from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy.dialects.postgresql import ARRAY
 from geoalchemy2 import Geometry
 from . import config
+from sqlalchemy.orm import sessionmaker
+
 
 engine = create_engine(config.db_url)
 meta = MetaData()
+Session = sessionmaker(bind=engine)
+session = Session()
 
 models = Table(config.db_prefix + 'models', meta,
     Column('id', Integer, Sequence(config.db_prefix + 'models_id_seq'), primary_key=True),
@@ -159,3 +163,25 @@ rent_functions = Table(config.db_prefix + 'rent_functions', meta,
 def create_tables():
     '''Create tables at the database'''
     meta.create_all(engine)
+
+def delM(session,tablename,modelCol,model_id):
+    # create query of  elements to delete
+    toDelete = session.query(tablename).filter(modelCol == model_id)
+    toDelete.delete(synchronize_session=False)  #Delete the elements
+    session.commit()   # Commit the changes 
+
+def delete_tables(name):
+    model_id = session.query(models).filter_by(name=name).first()  # Search Model
+    if model_id: 
+        # If model is present
+        model_id=model_id[0]   # Get models ID
+
+        tabs=[rent_functions,bids_functions,bids_adjustments,agents_zones,demand_exogenous_cutoff,
+                        subsidies,demand,agents,real_estates_zones,supply,rent_adjustments,zones] # List of all tables to update 
+        for k,t in enumerate(tabs):
+            delM(session,t,t.c.models_id,model_id) # Delete records from tables
+            print ("Deleting Tables: ",str(round((k+1)*100/float(len(tabs)+1),2))+"%",end="\r")
+        delM(session,models,models.c.id,model_id)  # Delete from models table
+        print ("Delete Complete"," "*50)
+    else:
+        print ("Model Not Found") # If model is not present
